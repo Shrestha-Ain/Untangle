@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GraphRAG City Explorer</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#00685f",
+            "primary-container": "#008378",
+            "on-primary": "#ffffff",
+            "surface": "#f8f9ff",
+            "on-surface": "#0b1c30",
+            "surface-container": "#e5eeff",
+            "surface-container-low": "#eff4ff",
+            "surface-container-high": "#dce9ff",
+            "surface-container-highest": "#d3e4fe",
+            "on-surface-variant": "#3d4947",
+            "district-concept": "#10B981",
+            "district-person": "#8B5CF6",
+            "district-org": "#F59E0B",
+            "district-location": "#EF4444",
+            "beam-pulse": "#38BDF8",
+            "citation-gold": "#D97706"
+          },
+          fontFamily: {
+            "game": ["Fredoka", "Inter", "sans-serif"],
+            "body": ["Inter", "sans-serif"],
+            "mono": ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-7px); }
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.9); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.3; }
+      100% { transform: scale(0.9); opacity: 0.8; }
+    }
+    @keyframes particle-run {
+      0% { stroke-dashoffset: 60; }
+      100% { stroke-dashoffset: 0; }
+    }
+    .animate-float {
+      animation: floaty 3.5s ease-in-out infinite;
+    }
+    .animate-float-delayed {
+      animation: floaty 3.5s ease-in-out infinite;
+      animation-delay: 1.5s;
+    }
+    .energy-stream {
+      stroke-dasharray: 8, 12;
+      animation: particle-run 1.4s linear infinite;
+    }
+  </style>
+</head>
+<body class="bg-[#EBF7F2] font-body text-on-surface select-none overflow-hidden h-screen w-screen relative">
+<!-- ==================== TOP NAVIGATION HUD (GAME BAR) ==================== -->
+<header class="fixed top-0 left-0 right-0 z-30 px-4 py-3 pointer-events-none flex items-center justify-between gap-4">
+<!-- Left: Player Profile & Town Brand -->
+<div class="pointer-events-auto flex items-center gap-3 bg-white/90 backdrop-blur-md px-3.5 py-2 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-white/60">
+<div class="relative">
+<div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#6366F1] to-[#A855F7] p-0.5 shadow-md flex items-center justify-center text-white text-xl">
+          🧙‍♂️
+        </div>
+<div class="absolute -bottom-1 -right-1 bg-[#D97706] text-white text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full border-2 border-white shadow-sm">
+          Lv.14
+        </div>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-game font-bold text-gray-800 text-[15px]">Scholar Aris</span>
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-mono font-bold">● Live Sync</span>
+</div>
+<!-- Fun XP Bar -->
+<div class="flex items-center gap-2 mt-0.5">
+<div class="w-24 h-2 bg-slate-100 rounded-full overflow-hidden p-0.5 shadow-inner">
+<div class="h-full bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full w-[78%]"></div>
+</div>
+<span class="text-[10px] font-mono font-semibold text-slate-500">2,340 / 3,000 XP</span>
+</div>
+</div>
+</div>
+<!-- Center: Active Realm Banner & Filter Pills -->
+<div class="pointer-events-auto hidden md:flex items-center gap-2 bg-white/90 backdrop-blur-md p-1.5 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-white/60">
+<!-- Realm Badge -->
+<div class="px-3 py-1.5 rounded-xl bg-[#E8F8F5] text-primary flex items-center gap-1.5 font-game font-bold text-xs tracking-wide mr-1">
+<span class="material-symbols-outlined text-[18px] text-teal-600">fort</span>
+<span>Transformer Citadel</span>
+</div>
+<!-- Quick Tower Filters -->
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 text-white font-game font-bold text-xs shadow-sm hover:bg-teal-700 transition-all">
+<span>🏰 All Towers</span>
+<span class="bg-teal-700/60 px-1.5 py-0.5 rounded-full text-[10px]">12</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 hover:bg-slate-100 font-game font-semibold text-xs transition-all">
+<span>⚡ Concepts</span>
+<span class="bg-slate-200/70 text-slate-600 px-1.5 py-0.5 rounded-full text-[10px]">6</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 hover:bg-slate-100 font-game font-semibold text-xs transition-all">
+<span>🧙‍♂️ Scholars</span>
+<span class="bg-slate-200/70 text-slate-600 px-1.5 py-0.5 rounded-full text-[10px]">4</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-600 hover:bg-slate-100 font-game font-semibold text-xs transition-all">
+<span>🎯 Arenas</span>
+<span class="bg-slate-200/70 text-slate-600 px-1.5 py-0.5 rounded-full text-[10px]">2</span>
+</button>
+</div>
+<!-- Right Controls: View Helpers -->
+<div class="pointer-events-auto flex items-center gap-2">
+<button class="w-10 h-10 rounded-2xl bg-white/90 backdrop-blur-md shadow-md hover:bg-white text-slate-700 flex items-center justify-center transition-transform active:scale-95" id="btn-recenter" title="Center on Spire">
+<span class="material-symbols-outlined text-[20px]">filter_center_focus</span>
+</button>
+<button class="w-10 h-10 rounded-2xl bg-white/90 backdrop-blur-md shadow-md hover:bg-white text-slate-700 flex items-center justify-center transition-transform active:scale-95" id="btn-zoom-in" title="Zoom In">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<button class="w-10 h-10 rounded-2xl bg-white/90 backdrop-blur-md shadow-md hover:bg-white text-slate-700 flex items-center justify-center transition-transform active:scale-95" id="btn-zoom-out" title="Zoom Out">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<button class="px-3.5 h-10 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-game font-bold text-xs shadow-md hover:brightness-105 flex items-center gap-1.5 transition-all">
+<span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+<span class="hidden sm:inline">Daily Quest</span>
+</button>
+</div>
+</header>
+<!-- ==================== THE GAMIFIED ISOMETRIC TOWN CANVAS ==================== -->
+<main class="w-full h-full relative cursor-grab active:cursor-grabbing overflow-hidden" id="viewport-canvas">
+<svg class="w-[1920px] h-[1280px] absolute -top-[160px] -left-[180px] transform-gpu transition-transform duration-500 ease-out" fill="none" id="game-svg-map" viewbox="0 0 1920 1280" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<!-- Gradients -->
+<lineargradient id="grassGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#E9F7EF"></stop>
+<stop offset="50%" stop-color="#DEF3E7"></stop>
+<stop offset="100%" stop-color="#D4ECE0"></stop>
+</lineargradient>
+<lineargradient id="cyanCrystalGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#67E8F9"></stop>
+<stop offset="50%" stop-color="#06B6D4"></stop>
+<stop offset="100%" stop-color="#0891B2"></stop>
+</lineargradient>
+<lineargradient id="purpleRoofGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#C084FC"></stop>
+<stop offset="100%" stop-color="#7E22CE"></stop>
+</lineargradient>
+<lineargradient id="amberDomeGrad" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#FCD34D"></stop>
+<stop offset="70%" stop-color="#F59E0B"></stop>
+<stop offset="100%" stop-color="#D97706"></stop>
+</lineargradient>
+<!-- Soft Drop Shadow for Buildings -->
+<filter height="160%" id="softGlow" width="160%" x="-30%" y="-30%">
+<fegaussianblur result="glow" stddeviation="8"></fegaussianblur>
+<fecomposite in="SourceGraphic" in2="glow" operator="over"></fecomposite>
+</filter>
+</defs>
+<!-- Land Base -->
+<rect fill="url(#grassGrad)" height="1280" width="1920"></rect>
+<!-- DISTRICT TURFS & SOFT ISLAND PLATFORMS -->
+<!-- District 1: Attention Valley (North Cyan-Green Zone) -->
+<polygon fill="#CEEFE2" points="560,240 1020,90 1440,290 980,440" rx="20" stroke="#B4E5D1" stroke-width="4"></polygon>
+<!-- District 2: Memory Woods (South-East Lavender Zone) -->
+<polygon fill="#E8EDF9" points="980,440 1440,290 1720,440 1260,600" stroke="#CCD8F4" stroke-width="4"></polygon>
+<!-- District 3: Scholar Grove (West Pink-Plum Zone) -->
+<polygon fill="#F4E9F7" points="220,420 560,240 980,440 640,620" stroke="#E3CCE9" stroke-width="4"></polygon>
+<!-- District 4: Benchmark Colosseum Arena (South Sunny Arena) -->
+<polygon fill="#FDF1DF" points="640,620 980,440 1260,600 920,780" stroke="#F8DFBC" stroke-width="4"></polygon>
+<!-- District Cute Badges in Ground -->
+<g opacity="0.65">
+<text class="font-game font-bold text-sm tracking-wider" fill="#0D9488" x="790" y="210">🌿 DISTRICT 1: ATTENTION VALLEY</text>
+<text class="font-game font-bold text-sm tracking-wider" fill="#8B5CF6" x="430" y="470">📜 SCHOLAR GROVE</text>
+<text class="font-game font-bold text-sm tracking-wider" fill="#3B82F6" x="1340" y="400">🌲 MEMORY WOODS</text>
+<text class="font-game font-bold text-sm tracking-wider" fill="#D97706" x="890" y="650">⚔️ BENCHMARK ARENA</text>
+</g>
+<!-- ISOMETRIC COBBLESTONE & NEON ENERGY HIGHWAYS -->
+<!-- Road Underlays -->
+<g opacity="0.8" stroke="#CBD5E1" stroke-linecap="round" stroke-linejoin="round" stroke-width="32">
+<path d="M 980,440 L 980,240"></path>
+<path d="M 980,440 L 590,460"></path>
+<path d="M 980,440 L 1380,420"></path>
+<path d="M 980,440 L 960,660"></path>
+<path d="M 590,460 L 420,330"></path>
+<path d="M 1380,420 L 1520,320"></path>
+</g>
+<!-- Road Surface (Pastel White/Cream) -->
+<g stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" stroke-width="22">
+<path d="M 980,440 L 980,240"></path>
+<path d="M 980,440 L 590,460"></path>
+<path d="M 980,440 L 1380,420"></path>
+<path d="M 980,440 L 960,660"></path>
+<path d="M 590,460 L 420,330"></path>
+<path d="M 1380,420 L 1520,320"></path>
+</g>
+<!-- LUMINOUS NEON ENERGY PATHWAYS WITH FLOWING PARTICLES -->
+<g stroke-linecap="round">
+<!-- Spire to Subspace QKV -->
+<path class="energy-stream" d="M 980,440 L 980,240" stroke="#38BDF8" stroke-width="6"></path>
+<!-- Spire to Vaswani Research Lodge -->
+<path class="energy-stream" d="M 980,440 L 590,460" stroke="#A855F7" stroke-width="6"></path>
+<!-- Spire to Memory/Brain Labs -->
+<path class="energy-stream" d="M 980,440 L 1380,420" stroke="#06B6D4" stroke-width="6"></path>
+<!-- Spire to Scaled Dot-Product Arena -->
+<path class="energy-stream" d="M 980,440 L 960,660" stroke="#F59E0B" stroke-width="6"></path>
+</g>
+<!-- CUTE PLAYFUL TREES & FOLIAGE -->
+<g>
+<!-- Tree Cluster Left -->
+<circle cx="340" cy="480" fill="#86EFAC" r="22"></circle>
+<circle cx="335" cy="475" fill="#BBF7D0" r="16"></circle>
+<circle cx="370" cy="510" fill="#4ADE80" r="18"></circle>
+<!-- Tree Cluster Right -->
+<circle cx="1200" cy="330" fill="#86EFAC" r="24"></circle>
+<circle cx="1230" cy="350" fill="#4ADE80" r="20"></circle>
+<circle cx="1470" cy="460" fill="#A7F3D0" r="26"></circle>
+<!-- Tree Cluster South -->
+<circle cx="680" cy="690" fill="#86EFAC" r="22"></circle>
+<circle cx="710" cy="710" fill="#4ADE80" r="17"></circle>
+<circle cx="1180" cy="670" fill="#86EFAC" r="20"></circle>
+</g>
+<!-- ==================== TOWER 1: MULTI-HEAD ATTENTION SPIRE (MAJESTIC TALL CYAN BEACON) ==================== -->
+<g class="cursor-pointer group" id="tower-multi-head" onclick="selectTower('multi-head')">
+<!-- Tower Pulsing Base Rings -->
+<ellipse class="animate-ping" cx="980" cy="445" fill="#38BDF8" opacity="0.25" rx="80" ry="38" style="animation-duration: 3s;"></ellipse>
+<ellipse cx="980" cy="445" fill="#0F172A" opacity="0.12" rx="65" ry="30"></ellipse>
+<!-- Tower 3D Stepped Crystal Body -->
+<polygon fill="#67E8F9" points="980,430 1040,400 980,370 920,400"></polygon>
+<polygon fill="#06B6D4" points="920,400 980,430 980,280 920,250"></polygon>
+<polygon fill="#0891B2" points="980,430 1040,400 1040,250 980,280"></polygon>
+<!-- Floating Crystal Shards (Tower Defense Style) -->
+<g class="animate-float">
+<!-- Central Floating Gem -->
+<polygon fill="url(#cyanCrystalGrad)" filter="url(#softGlow)" points="980,230 1015,190 980,120 945,190"></polygon>
+<polygon fill="#A5F3FC" points="980,230 1015,190 980,205"></polygon>
+<circle cx="980" cy="180" fill="#FFFFFF" opacity="0.8" r="8"></circle>
+<!-- Sky Light Beam -->
+<line class="animate-pulse" opacity="0.8" stroke="#38BDF8" stroke-linecap="round" stroke-width="4" x1="980" x2="980" y1="120" y2="40"></line>
+</g>
+<!-- Cute Floating Game Tag -->
+<g class="transition-transform group-hover:scale-110" transform="translate(980, 100)">
+<rect class="shadow-lg" fill="#0F172A" height="36" rx="18" width="170" x="-85" y="-18"></rect>
+<circle cx="-62" cy="0" fill="#06B6D4" r="8"></circle>
+<text class="font-game font-bold text-xs" fill="#FFFFFF" x="-46" y="5">Multi-Head Spire</text>
+<rect fill="#008378" height="18" rx="9" width="28" x="42" y="-9"></rect>
+<text class="font-mono text-[9px] font-bold" fill="#FFFFFF" text-anchor="middle" x="56" y="4">★ Lv3</text>
+</g>
+</g>
+<!-- ==================== TOWER 2: VASWANI RESEARCH LODGE (COZY PURPLE ACADEMY) ==================== -->
+<g class="cursor-pointer group" id="tower-vaswani" onclick="selectTower('vaswani')">
+<!-- Ground Shadow -->
+<ellipse cx="590" cy="470" fill="#0F172A" opacity="0.12" rx="55" ry="26"></ellipse>
+<!-- Lodge Walls -->
+<polygon fill="#7C3AED" points="530,440 590,470 590,370 530,340"></polygon>
+<polygon fill="#9333EA" points="590,470 650,440 650,340 590,370"></polygon>
+<!-- Steeple Cozy Roof -->
+<polygon fill="url(#purpleRoofGrad)" points="590,370 650,340 590,260 530,340"></polygon>
+<!-- Cute Arch Door -->
+<polygon fill="#FDE047" points="580,460 600,450 600,420 580,430"></polygon>
+<!-- Mini Tower Flag -->
+<line stroke="#A855F7" stroke-width="3" x1="590" x2="590" y1="260" y2="230"></line>
+<polygon fill="#F59E0B" points="590,230 615,240 590,250"></polygon>
+<!-- Tag -->
+<g class="transition-transform group-hover:scale-110" transform="translate(590, 215)">
+<rect class="shadow-md" fill="#FFFFFF" height="32" rx="16" stroke="#8B5CF6" stroke-width="2" width="160" x="-80" y="-16"></rect>
+<circle cx="-60" cy="0" fill="#8B5CF6" r="7"></circle>
+<text class="font-game font-bold text-xs" fill="#3B0764" x="-46" y="5">Vaswani Lodge</text>
+<text class="font-game font-bold text-[10px]" fill="#8B5CF6" x="50" y="4">🧙‍♂️ Author</text>
+</g>
+</g>
+<!-- ==================== TOWER 3: SCALED DOT-PRODUCT ARENA (GOLDEN COMBAT DOME) ==================== -->
+<g class="cursor-pointer group" id="tower-arena" onclick="selectTower('arena')">
+<ellipse cx="960" cy="670" fill="#0F172A" opacity="0.14" rx="65" ry="30"></ellipse>
+<!-- Tier 1 Base -->
+<polygon fill="#F59E0B" points="900,645 960,675 1020,645 960,615"></polygon>
+<polygon fill="#D97706" points="900,645 960,675 960,620 900,590"></polygon>
+<polygon fill="#B45309" points="960,675 1020,645 1020,590 960,620"></polygon>
+<!-- Golden Training Dome -->
+<path d="M 915,595 Q 960,500 1005,595 Z" fill="url(#amberDomeGrad)" filter="url(#softGlow)"></path>
+<circle cx="960" cy="550" fill="#FFFBEB" r="7"></circle>
+<!-- Tag -->
+<g class="transition-transform group-hover:scale-110" transform="translate(960, 490)">
+<rect class="shadow-md" fill="#FFFFFF" height="32" rx="16" stroke="#F59E0B" stroke-width="2" width="170" x="-85" y="-16"></rect>
+<circle cx="-65" cy="0" fill="#F59E0B" r="7"></circle>
+<text class="font-game font-bold text-xs" fill="#78350F" x="-50" y="5">Scaled Dot Arena</text>
+<text class="font-game font-bold text-[10px]" fill="#D97706" x="50" y="4">⚔️ 1/√dk</text>
+</g>
+</g>
+<!-- ==================== TOWER 4: Q, K, V SUBSPACE PYLONS (GLOWING ELEMENTAL TOWERS) ==================== -->
+<g class="cursor-pointer group animate-float-delayed" id="tower-qkv" onclick="selectTower('qkv')">
+<ellipse cx="980" cy="245" fill="#0F172A" opacity="0.1" rx="50" ry="22"></ellipse>
+<!-- 3 Mini Crystals Floating in Harmony -->
+<!-- Pylon Q (Pink) -->
+<polygon fill="#EC4899" points="950,230 965,200 950,165 935,200"></polygon>
+<!-- Pylon K (Teal) -->
+<polygon fill="#10B981" points="980,240 995,210 980,175 965,210"></polygon>
+<!-- Pylon V (Amber) -->
+<polygon fill="#F59E0B" points="1010,230 1025,200 1010,165 995,200"></polygon>
+<!-- Tag -->
+<g class="transition-transform group-hover:scale-110" transform="translate(980, 140)">
+<rect class="shadow-md" fill="#FFFFFF" height="30" rx="15" stroke="#10B981" stroke-width="2" width="140" x="-70" y="-15"></rect>
+<text class="font-game font-bold text-xs" fill="#065F46" text-anchor="middle" x="0" y="5">✨ Q, K, V Pylons</text>
+</g>
+</g>
+<!-- ==================== TOWER 5: GOOGLE BRAIN CAMPUS (TECH LAB) ==================== -->
+<g class="cursor-pointer group" id="tower-brain" onclick="selectTower('brain')">
+<ellipse cx="1380" cy="430" fill="#0F172A" opacity="0.12" rx="55" ry="25"></ellipse>
+<polygon fill="#3B82F6" points="1320,405 1380,435 1380,350 1320,320"></polygon>
+<polygon fill="#60A5FA" points="1380,435 1440,405 1440,320 1380,350"></polygon>
+<!-- Tech Solar Roof -->
+<polygon fill="#93C5FD" points="1380,350 1440,320 1380,285 1320,320"></polygon>
+<circle cx="1380" cy="305" fill="#F59E0B" r="8"></circle>
+<!-- Tag -->
+<g class="transition-transform group-hover:scale-110" transform="translate(1380, 260)">
+<rect class="shadow-md" fill="#FFFFFF" height="30" rx="15" stroke="#3B82F6" stroke-width="2" width="150" x="-75" y="-15"></rect>
+<circle cx="-55" cy="0" fill="#3B82F6" r="6"></circle>
+<text class="font-game font-bold text-xs" fill="#1E3A8A" x="-42" y="5">Google Brain Lab</text>
+</g>
+</g>
+<!-- Floating Mascot / Drone Carrier -->
+<g class="animate-float" transform="translate(850, 360)">
+<circle class="shadow-lg" cx="0" cy="0" fill="#38BDF8" r="16"></circle>
+<circle cx="-4" cy="-2" fill="#FFFFFF" r="3"></circle>
+<circle cx="4" cy="-2" fill="#FFFFFF" r="3"></circle>
+<path d="M -4,5 Q 0,8 4,5" fill="none" stroke="#0369A1" stroke-linecap="round" stroke-width="2"></path>
+<!-- Tiny propeller -->
+<line stroke="#0F172A" stroke-width="2.5" x1="-12" x2="12" y1="-17" y2="-17"></line>
+<circle cx="0" cy="-17" fill="#F59E0B" r="3"></circle>
+</g>
+</svg>
+</main>
+<!-- ==================== RIGHT SIDE: COMPACT BUILDING INFO CARD ==================== -->
+<aside class="fixed top-20 right-4 w-80 bg-white/95 backdrop-blur-xl rounded-3xl p-5 shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-white/80 z-30 transition-all duration-300" id="building-info-card">
+<!-- Close Card Pill -->
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-10 h-10 rounded-2xl bg-cyan-100 text-cyan-600 flex items-center justify-center text-xl shadow-inner" id="card-icon">
+          💎
+        </div>
+<div>
+<span class="font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md" id="card-type">CORE MECHANISM</span>
+<h2 class="font-game font-bold text-slate-800 text-base leading-tight mt-0.5" id="card-title">Multi-Head Attention</h2>
+</div>
+</div>
+<button class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors" onclick="toggleCard()">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+<!-- Quick Stats in Big Fun Numbers -->
+<div class="grid grid-cols-3 gap-2 my-4">
+<div class="bg-slate-50 rounded-2xl p-2.5 text-center border border-slate-100">
+<div class="text-[10px] font-game text-slate-400 font-semibold uppercase">Level</div>
+<div class="font-game font-bold text-teal-700 text-lg" id="card-level">Lv. 3</div>
+</div>
+<div class="bg-slate-50 rounded-2xl p-2.5 text-center border border-slate-100">
+<div class="text-[10px] font-game text-slate-400 font-semibold uppercase">Mentions</div>
+<div class="font-game font-bold text-indigo-600 text-lg" id="card-mentions">48×</div>
+</div>
+<div class="bg-slate-50 rounded-2xl p-2.5 text-center border border-slate-100">
+<div class="text-[10px] font-game text-slate-400 font-semibold uppercase">Roads</div>
+<div class="font-game font-bold text-amber-600 text-lg" id="card-roads">4 Links</div>
+</div>
+</div>
+<!-- Cute Flavor Description -->
+<p class="text-xs text-slate-600 leading-relaxed font-body bg-slate-50/70 p-3 rounded-2xl border border-slate-100" id="card-desc">
+      Instead of only paying attention to one word context, this spire splits inputs into 8 parallel projection heads. It lets the town look at syntax, grammar, and entities all at the same time!
+    </p>
+<!-- Action Buttons -->
+<div class="mt-4 flex items-center gap-2">
+<button class="flex-1 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-2xl font-game font-bold text-xs shadow-md shadow-teal-700/20 flex items-center justify-center gap-1.5 transition-transform active:scale-95" onclick="triggerDialogueHighlight()">
+<span class="material-symbols-outlined text-[16px]">explore</span>
+<span>Study Connections</span>
+</button>
+<button class="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors" title="Bookmark Landmark">
+<span class="material-symbols-outlined text-[18px]">bookmark</span>
+</button>
+</div>
+</aside>
+<!-- ==================== BOTTOM: RPG STUDY QUEST DIALOGUE BOX ==================== -->
+<div class="fixed bottom-4 left-4 right-4 md:left-6 md:right-auto md:w-[580px] z-30 pointer-events-auto">
+<div class="bg-white/95 backdrop-blur-xl rounded-3xl p-4 shadow-[0_12px_48px_rgba(0,0,0,0.14)] border border-white/80 transition-all duration-300">
+<!-- Companion Header -->
+<div class="flex items-center justify-between pb-3 border-b border-slate-100">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg shadow-inner">
+            🦉
+          </div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="font-game font-bold text-slate-800 text-xs">Professor Archimedes</span>
+<span class="px-2 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-mono font-bold">Quest Guide</span>
+</div>
+<p class="text-[11px] text-slate-400 font-medium">Attention Is All You Need · Research Quest</p>
+</div>
+</div>
+<button class="px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-game font-bold text-xs flex items-center gap-1 transition-colors border border-amber-200/60" id="btn-quest-clue" onclick="toggleClue()">
+<span class="material-symbols-outlined text-[16px] text-amber-600">lightbulb</span>
+<span id="clue-btn-label">Inspect Quest Clue</span>
+</button>
+</div>
+<!-- Dialogue Bubble -->
+<div class="py-3">
+<p class="text-[13px] text-slate-700 font-medium leading-relaxed" id="dialogue-text">
+          "💡 Multi-Head Attention allows our neural town to look at multiple positions at once without getting confused! What would you like to explore next?"
+        </p>
+<!-- Hidden Clue Accordion (Clean, uncluttered) -->
+<div class="hidden mt-2.5 p-3 rounded-2xl bg-teal-50 border border-teal-100 text-xs text-teal-900 leading-relaxed font-mono" id="quest-clue-box">
+<div class="flex items-center justify-between font-game font-bold text-teal-900 text-xs mb-1">
+<span>📜 Formula Discovery</span>
+<span class="text-[10px] text-teal-700">Section 3.2</span>
+</div>
+          Attention(Q,K,V) = softmax((Q·Kᵀ)/√d_k) · V<br/>
+<span class="text-teal-700 text-[11px] font-body mt-1 block">Dividing by √d_k prevents dot products from blowing up into flat softmax gradients!</span>
+</div>
+</div>
+<!-- Friendly Gamified Input Dock -->
+<form class="flex items-center gap-2 pt-1" onsubmit="handleAsk(event)">
+<div class="relative flex-1">
+<span class="absolute left-3 top-2.5 text-slate-400 material-symbols-outlined text-[18px]">search</span>
+<input class="w-full pl-9 pr-3 py-2 bg-slate-100/90 hover:bg-slate-100 focus:bg-white text-slate-800 text-xs font-body rounded-2xl border-none focus:ring-2 focus:ring-teal-500 placeholder-slate-400 transition-all" id="user-input" placeholder="Ask a question about this town..." type="text"/>
+</div>
+<button class="px-4 py-2 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-game font-bold text-xs rounded-2xl shadow-md shadow-teal-700/20 flex items-center gap-1 transition-all" type="submit">
+<span>Ask</span>
+<span class="text-sm">🏹</span>
+</button>
+</form>
+</div>
+</div>
+<!-- ==================== JAVASCRIPT INTERACTIONS ==================== -->
+<script>
+    // Canvas Pan & Zoom Micro-interactions
+    const viewport = document.getElementById('viewport-canvas');
+    const svgMap = document.getElementById('game-svg-map');
+    let isDragging = false;
+    let startX, startY;
+    let translateX = -180;
+    let translateY = -160;
+    let scale = 1;
+
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button') || e.target.closest('input') || e.target.closest('#building-info-card')) return;
+      isDragging = true;
+      startX = e.clientX - translateX;
+      startY = e.clientY - translateY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      translateX = e.clientX - startX;
+      translateY = e.clientY - startY;
+      applyTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    function applyTransform() {
+      svgMap.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`;
+    }
+
+    document.getElementById('btn-zoom-in').addEventListener('click', () => {
+      scale = Math.min(scale + 0.15, 1.6);
+      applyTransform();
+    });
+
+    document.getElementById('btn-zoom-out').addEventListener('click', () => {
+      scale = Math.max(scale - 0.15, 0.7);
+      applyTransform();
+    });
+
+    document.getElementById('btn-recenter').addEventListener('click', () => {
+      translateX = -180;
+      translateY = -160;
+      scale = 1;
+      applyTransform();
+    });
+
+    // Town Building Selection Logic
+    const towerData = {
+      'multi-head': {
+        title: 'Multi-Head Attention',
+        type: 'CORE MECHANISM',
+        icon: '💎',
+        level: 'Lv. 3',
+        mentions: '48×',
+        roads: '4 Links',
+        desc: 'Instead of only paying attention to one word context, this spire splits inputs into 8 parallel projection heads. It lets the town look at syntax, grammar, and entities all at the same time!',
+        dialogue: '💡 Multi-Head Attention allows our neural town to look at multiple positions at once without getting confused! What would you like to explore next?'
+      },
+      'vaswani': {
+        title: 'Vaswani Research Lodge',
+        type: 'SCHOLAR SANCTUARY',
+        icon: '🧙‍♂️',
+        level: 'Lv. 5',
+        mentions: '14×',
+        roads: '2 Links',
+        desc: 'Home of Ashish Vaswani & Google Brain researchers who drafted the sacred 2017 Transformer scroll that founded this entire citadel!',
+        dialogue: '📜 You have arrived at Ashish Vaswani’s study lodge! He theorized that recurrence could be replaced entirely by attention.'
+      },
+      'arena': {
+        title: 'Scaled Dot-Product Arena',
+        type: 'TRAINING DOME',
+        icon: '⚔️',
+        level: 'Lv. 2',
+        mentions: '32×',
+        roads: '3 Links',
+        desc: 'The computational combat ring where queries and keys clash! The √d_k scaling factor protects our town against lethal vanishing gradients.',
+        dialogue: '⚡ In this arena, dividing by √d_k ensures dot products do not grow too large in high dimensions!'
+      },
+      'qkv': {
+        title: 'Q, K, V Subspace Pylons',
+        type: 'ELEMENTAL TOWERS',
+        icon: '✨',
+        level: 'Lv. 4',
+        mentions: '64×',
+        roads: '3 Links',
+        desc: 'The Query, Key, and Value triumvirate! They transform input embeddings into specialized subspaces for maximum linguistic perception.',
+        dialogue: '✨ Query seeks clues, Key offers identity, and Value delivers content. Together they power all citation spells!'
+      },
+      'brain': {
+        title: 'Google Brain Lab',
+        type: 'INNOVATION HUB',
+        icon: '🏢',
+        level: 'Lv. 5',
+        mentions: '21×',
+        roads: '2 Links',
+        desc: 'The institutional headquarters where the Transformer architecture was prototyped, trained, and benchmarked on WMT datasets.',
+        dialogue: '🏛️ Google Brain engineers trained the base model for 12 hours on 8 P100 GPUs to achieve a new SOTA BLEU score!'
+      }
+    };
+
+    function selectTower(id) {
+      const data = towerData[id];
+      if (!data) return;
+
+      // Update right card
+      document.getElementById('card-title').innerText = data.title;
+      document.getElementById('card-type').innerText = data.type;
+      document.getElementById('card-icon').innerText = data.icon;
+      document.getElementById('card-level').innerText = data.level;
+      document.getElementById('card-mentions').innerText = data.mentions;
+      document.getElementById('card-roads').innerText = data.roads;
+      document.getElementById('card-desc').innerText = data.desc;
+
+      // Show card if closed
+      document.getElementById('building-info-card').classList.remove('translate-x-96', 'opacity-0');
+
+      // Update dialogue
+      document.getElementById('dialogue-text').innerText = data.dialogue;
+    }
+
+    function toggleCard() {
+      const card = document.getElementById('building-info-card');
+      card.classList.toggle('translate-x-96');
+      card.classList.toggle('opacity-0');
+    }
+
+    function toggleClue() {
+      const clueBox = document.getElementById('quest-clue-box');
+      const label = document.getElementById('clue-btn-label');
+      if (clueBox.classList.contains('hidden')) {
+        clueBox.classList.remove('hidden');
+        label.innerText = 'Hide Clue';
+      } else {
+        clueBox.classList.add('hidden');
+        label.innerText = 'Inspect Quest Clue';
+      }
+    }
+
+    function handleAsk(e) {
+      e.preventDefault();
+      const input = document.getElementById('user-input');
+      if (!input.value.trim()) return;
+
+      const userText = input.value;
+      input.value = '';
+
+      document.getElementById('dialogue-text').innerHTML = `🏹 <b>"Why ${userText}?"</b><br><br>The citadel responds: In multi-head attention, different heads specialize! Head 1 catches pronoun agreements while Head 4 tracks verbs across 50 tokens.`;
+    }
+
+    function triggerDialogueHighlight() {
+      document.getElementById('dialogue-text').innerText = "✨ Revealing glowing pathways: Connections to Scaled Dot Arena, Vaswani Lodge, and QKV Pylons are now illuminated!";
+    }
+  </script>
+</body></html>
