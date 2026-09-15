@@ -254,6 +254,93 @@ def run_ingestion_pipeline(document_id: str):
 
 The `chord` is the key Celery primitive here: it fans out extraction across all chunks **in parallel**, then waits for every single one to finish before running deduplication — because dedup needs the full picture of every entity mentioned in the document, not just one chunk's worth.
 
+## A.8 Player & Gamification Endpoints (`api/v1/player.py`)
+
+```python
+from fastapi import APIRouter, Depends
+from app.api.deps import get_db, get_current_user
+from app.schemas.player import PlayerProfileOut, PlayerProfileUpdate
+from app.schemas.quest import QuestOut
+from app.services import player_service
+
+router = APIRouter(prefix='/player', tags=['player'])
+
+@router.get('/profile', response_model=PlayerProfileOut)
+def get_profile(db=Depends(get_db), user=Depends(get_current_user)):
+    return player_service.get_or_create_profile(db, user.id)
+
+@router.put('/profile', response_model=PlayerProfileOut)
+def update_profile(
+    update: PlayerProfileUpdate,
+    db=Depends(get_db),
+    user=Depends(get_current_user),
+):
+    return player_service.update_profile(db, user.id, update)
+
+@router.get('/quests', response_model=list[QuestOut])
+def list_quests(db=Depends(get_db), user=Depends(get_current_user)):
+    return player_service.list_quests(db, user.id)
+```
+
+### Realm-Aware Document Response (`schemas/document.py` extension)
+
+```python
+from pydantic import BaseModel
+from datetime import datetime
+
+class DocumentOut(BaseModel):
+    id: str
+    filename: str
+    status: str
+    uploaded_at: datetime
+    processed_at: datetime | None
+    # Gamification: realm identity
+    realm_name: str | None         # e.g., 'Attention Valley', auto-generated from paper title
+    realm_emoji: str               # e.g., '🌿', '🏰', '🏙️'
+    realm_color: str               # tailwind color key: 'emerald', 'sky', 'purple', 'amber'
+    realm_level: int               # computed from entity/community density
+    # Aggregate stats (fetched from Neo4j)
+    district_count: int            # community count
+    tower_count: int               # total entity count
+    scholar_count: int             # PERSON-type entity count
+
+    class Config:
+        from_attributes = True
+```
+
+### XP Award Logic (`services/player_service.py` excerpt)
+
+```python
+XP_REWARDS = {
+    'document_ingested': 50,
+    'question_asked': 10,
+    'community_explored': 5,
+    'quest_completed': 100,
+}
+
+LEVEL_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 3500, 5500, 8000, 12000]
+
+def award_xp(db, user_id: str, action: str):
+    profile = get_or_create_profile(db, user_id)
+    xp_gain = XP_REWARDS.get(action, 0)
+    profile.xp += xp_gain
+
+    # Check level-up
+    for i, threshold in enumerate(LEVEL_THRESHOLDS):
+        if profile.xp >= threshold:
+            profile.level = i + 1
+    profile.xp_to_next_level = (
+        LEVEL_THRESHOLDS[profile.level] - profile.xp
+        if profile.level < len(LEVEL_THRESHOLDS)
+        else 0
+    )
+
+    db.commit()
+    return {'xp_earned': xp_gain, 'leveled_up': profile.level > (profile.level - 1)}
+```
+
+This keeps gamification simple and deterministic — no randomness, no microtransactions, just straightforward 'do academic things → earn XP → level up.' The sparks/energy counters are primarily cosmetic for v1 but provide hooks for future rate-limiting (energy as a daily query budget) or reward mechanics (sparks earned per high-faithfulness answer).
+
 ---
 
 # B. Vue 3 + Cytoscape.js Integration
@@ -334,6 +421,121 @@ watch(() => graphStore.highlightedSubgraph, (subgraph) => {
 - `fcose` (fast Compound Spring Embedder) is chosen over Cytoscape's default `cose` layout because it converges faster and handles a few thousand nodes better — worth naming this choice explicitly if asked "why this layout algorithm."
 - The dim/highlight mechanic (`.dimmed` / `.highlighted` CSS classes) is what makes the chat-to-graph connection visually obvious — this is the single highest-impact UI detail in the whole app.
 
+## B.1.1 TownCanvas.vue (Gamified Alternative)
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted, watch, computed } from 'vue'
+import { useGraphStore } from '@/stores/graph'
+import { usePanZoom } from '@/composables/usePanZoom'
+import { useTownLayout } from '@/composables/useTownLayout'
+import TowerBuilding from './TowerBuilding.vue'
+import EnergyRoad from './EnergyRoad.vue'
+import DistrictTurf from './DistrictTurf.vue'
+
+const svgRef = ref<SVGSVGElement | null>(null)
+const graphStore = useGraphStore()
+const { translateX, translateY, scale, onMouseDown, onWheel } = usePanZoom()
+const { layoutBuildings, layoutRoads, layoutDistricts } = useTownLayout()
+
+// Building type → visual config mapping
+const buildingConfig: Record<string, { fill: string; roofGrad: string; emoji: string }> = {
+  PERSON:   { fill: '#7C3AED', roofGrad: 'purpleRoofGrad',  emoji: '🧙‍♂️' },
+  ORG:      { fill: '#3B82F6', roofGrad: 'blueRoofGrad',    emoji: '🏢' },
+  CONCEPT:  { fill: '#06B6D4', roofGrad: 'cyanCrystalGrad', emoji: '💎' },
+  LOCATION: { fill: '#F59E0B', roofGrad: 'amberDomeGrad',   emoji: '⚔️' },
+  DEFAULT:  { fill: '#9CA3AF', roofGrad: 'grayRoofGrad',    emoji: '🏛️' },
+}
+
+// Road color by relationship context
+const roadColors: Record<string, string> = {
+  RELATES_TO: '#38BDF8',
+  WORKS_FOR:  '#A855F7',
+  LOCATED_IN: '#F59E0B',
+  CITES:      '#06B6D4',
+  DEFAULT:    '#38BDF8',
+}
+
+const buildings = computed(() => layoutBuildings(graphStore.townBuildings))
+const roads = computed(() => layoutRoads(graphStore.energyRoads, buildings.value))
+const districts = computed(() => layoutDistricts(graphStore.communities))
+
+function onBuildingClick(entityId: string) {
+  graphStore.selectEntity(entityId)
+}
+
+// Watch for chat answer subgraph highlight
+watch(() => graphStore.highlightedSubgraph, (subgraph) => {
+  if (!svgRef.value || !subgraph) return
+  // Dim all buildings and roads
+  svgRef.value.querySelectorAll('.town-building, .energy-road')
+    .forEach(el => { el.classList.add('dimmed'); el.classList.remove('highlighted') })
+  // Highlight relevant ones
+  subgraph.nodeIds.forEach(id => {
+    svgRef.value?.querySelector(`#building-${id}`)?.classList.remove('dimmed')
+    svgRef.value?.querySelector(`#building-${id}`)?.classList.add('highlighted')
+  })
+  subgraph.edgeIds.forEach(id => {
+    svgRef.value?.querySelector(`#road-${id}`)?.classList.remove('dimmed')
+    svgRef.value?.querySelector(`#road-${id}`)?.classList.add('highlighted')
+  })
+})
+</script>
+
+<template>
+  <div
+    class="w-full h-full bg-[#EBF7F2] overflow-hidden cursor-grab active:cursor-grabbing"
+    @mousedown="onMouseDown"
+    @wheel="onWheel"
+  >
+    <svg
+      ref="svgRef"
+      :style="{ transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})` }"
+      class="w-[1920px] h-[1280px] transform-gpu transition-transform duration-100"
+      viewBox="0 0 1920 1280"
+    >
+      <!-- District terrain zones -->
+      <DistrictTurf
+        v-for="d in districts" :key="d.id"
+        :points="d.polygon" :fill="d.fill" :label="d.label"
+      />
+
+      <!-- Energy roads (rendered before buildings so roads go behind) -->
+      <EnergyRoad
+        v-for="r in roads" :key="r.id"
+        :id="`road-${r.id}`"
+        :path="r.svgPath" :color="roadColors[r.relationType] ?? roadColors.DEFAULT"
+        :label="r.relationType"
+        class="energy-road"
+      />
+
+      <!-- Tower buildings -->
+      <TowerBuilding
+        v-for="b in buildings" :key="b.id"
+        :id="`building-${b.id}`"
+        :x="b.x" :y="b.y"
+        :config="buildingConfig[b.type] ?? buildingConfig.DEFAULT"
+        :label="b.label" :level="b.level" :mention-count="b.mentionCount"
+        class="town-building"
+        @click="onBuildingClick(b.id)"
+      />
+    </svg>
+  </div>
+</template>
+
+<style>
+.town-building, .energy-road { transition: opacity 0.4s ease, filter 0.4s ease; }
+.dimmed { opacity: 0.15; filter: grayscale(0.8); }
+.highlighted { opacity: 1; filter: drop-shadow(0 0 24px rgba(56, 189, 248, 0.45)); }
+</style>
+```
+
+**Design notes for the Town Canvas:**
+- Buildings are positioned using isometric grid projection computed by `useTownLayout`. The composable takes force-directed layout coordinates (optionally computed via Cytoscape.js headless) and snaps them to a diamond grid: `screenX = (gridX - gridY) * tileWidth/2 + centerX`, `screenY = (gridX + gridY) * tileHeight/2 + centerY`.
+- Roads are SVG `<path>` elements with `stroke-dasharray` and CSS `@keyframes` animation for the marching-particles effect, creating the glowing energy highway aesthetic.
+- The dim/highlight mechanic works identically to the Cytoscape version in principle (CSS class toggling) but operates on SVG `<g>` groups instead of Cytoscape elements. The visual effect is more dramatic here — buildings glow with `drop-shadow` filter and roads pulse with marching particles when highlighted.
+- District polygons are generated from community clustering results and rendered as colored `<polygon>` elements beneath the buildings, visually grouping entities into named neighborhoods.
+
 ## B.2 `stores/graph.ts` (Pinia)
 
 ```typescript
@@ -346,18 +548,40 @@ export const useGraphStore = defineStore('graph', {
     edges: [] as any[],
     highlightedSubgraph: null as { nodeIds: string[]; edgeIds: string[] } | null,
     selectedEntityId: null as string | null,
+    communityData: [] as any[],
   }),
   getters: {
     cytoscapeElements: (state) => [
       ...state.nodes.map(n => ({ data: { id: n.id, label: n.name, type: n.type, mentionCount: n.mention_count } })),
       ...state.edges.map(e => ({ data: { id: e.id, source: e.source_id, target: e.target_id } })),
     ],
+    // ── Town Canvas getters ──
+    townBuildings: (state) => state.nodes.map(n => ({
+      id: n.id,
+      label: n.name,
+      type: n.type,              // PERSON | ORG | CONCEPT | LOCATION | OTHER
+      mentionCount: n.mention_count,
+      level: Math.min(Math.ceil((n.mention_count || 1) / 10), 5),
+    })),
+
+    energyRoads: (state) => state.edges.map(e => ({
+      id: e.id,
+      sourceId: e.source_id,
+      targetId: e.target_id,
+      relationType: e.relation_type || 'RELATES_TO',
+    })),
+
+    communities: (state) => state.communityData ?? [],
   },
   actions: {
     async fetchGraph(documentId: string) {
       const { data } = await api.get(`/graph/${documentId}`)
       this.nodes = data.nodes
       this.edges = data.edges
+    },
+    async fetchCommunities(documentId: string) {
+      const { data } = await api.get(`/graph/${documentId}/communities`)
+      this.communityData = data.communities
     },
     applyHighlight(subgraph: { nodeIds: string[]; edgeIds: string[] }) {
       this.highlightedSubgraph = subgraph
@@ -403,6 +627,178 @@ export function useChatSocket(sessionId: string, onSubgraph: (sg: any) => void) 
 ```
 
 `ChatPanel.vue` then just calls `applyHighlight` (from the graph store) inside the `onSubgraph` callback — this is the wiring that connects "an answer arrived" to "the graph should react."
+
+### B.3.1 Extended WebSocket Events for Gamification
+
+The base chat WebSocket handles `token` and `done` events. For the gamified UI, the ingestion progress WebSocket (`/ws/documents/{id}/progress`) sends additional event types:
+
+```typescript
+// Extended event types for the town-builder UI
+interface ConstructionEvent {
+  type: 'construction_step'
+  step: 'parse' | 'extract' | 'dedupe' | 'embed' | 'cluster' | 'summarize'
+  progress: number      // 0-100
+  detail: string        // e.g., 'Erecting 64 Towers...'
+  towersBuilt?: number  // running count of entities extracted so far
+  roadsLaid?: number    // running count of relationships extracted so far
+}
+
+interface QuestEvent {
+  type: 'quest_progress'
+  questId: string
+  currentStep: number
+  totalSteps: number
+  title: string
+}
+
+interface XpEvent {
+  type: 'xp_earned'
+  amount: number
+  reason: string        // e.g., 'Document ingested', 'New district discovered'
+  newTotal: number
+  leveledUp: boolean
+}
+```
+
+These map directly to UI updates:
+- `construction_step` → drives the 3-step `ConstructionPipeline.vue` progress cards and the master progress bar
+- `quest_progress` → updates the 'Active Quest' banner in `TopHudHeader.vue`
+- `xp_earned` → triggers a floating '+XP' toast animation and updates the player XP bar
+
+## B.4 Isometric Layout Composables
+
+### `composables/usePanZoom.ts`
+
+```typescript
+import { ref } from 'vue'
+
+export function usePanZoom() {
+  const translateX = ref(-180)
+  const translateY = ref(-160)
+  const scale = ref(1)
+  let isDragging = false
+  let startX = 0
+  let startY = 0
+
+  function onMouseDown(e: MouseEvent) {
+    if ((e.target as HTMLElement).closest('button, input, [data-no-pan]')) return
+    isDragging = true
+    startX = e.clientX - translateX.value
+    startY = e.clientY - translateY.value
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }
+
+  function onMouseMove(e: MouseEvent) {
+    if (!isDragging) return
+    translateX.value = e.clientX - startX
+    translateY.value = e.clientY - startY
+  }
+
+  function onMouseUp() {
+    isDragging = false
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', onMouseUp)
+  }
+
+  function onWheel(e: WheelEvent) {
+    e.preventDefault()
+    scale.value = Math.max(0.5, Math.min(2, scale.value - e.deltaY * 0.001))
+  }
+
+  function recenter() {
+    translateX.value = -180
+    translateY.value = -160
+    scale.value = 1
+  }
+
+  return { translateX, translateY, scale, onMouseDown, onWheel, recenter }
+}
+```
+
+### `composables/useTownLayout.ts`
+
+```typescript
+interface BuildingInput { id: string; label: string; type: string; mentionCount: number; level: number }
+interface RoadInput { id: string; sourceId: string; targetId: string; relationType: string }
+interface CommunityInput { id: string; title: string; entityIds: string[]; level: number }
+
+const TILE_W = 120
+const TILE_H = 60
+const CENTER_X = 960
+const CENTER_Y = 440
+
+function isoProject(gridX: number, gridY: number) {
+  return {
+    x: (gridX - gridY) * TILE_W / 2 + CENTER_X,
+    y: (gridX + gridY) * TILE_H / 2 + CENTER_Y,
+  }
+}
+
+export function useTownLayout() {
+  function layoutBuildings(buildings: BuildingInput[]) {
+    // Place buildings on a spiral isometric grid, sorted by mention count (most mentioned at center)
+    const sorted = [...buildings].sort((a, b) => b.mentionCount - a.mentionCount)
+    return sorted.map((b, i) => {
+      const ring = Math.floor(Math.sqrt(i))
+      const pos = i - ring * ring
+      const side = Math.floor(pos / Math.max(ring, 1))
+      const offset = pos % Math.max(ring, 1)
+      const gridCoords = spiralPosition(ring, side, offset)
+      const { x, y } = isoProject(gridCoords.gx, gridCoords.gy)
+      return { ...b, x, y }
+    })
+  }
+
+  function layoutRoads(roads: RoadInput[], buildings: Array<BuildingInput & { x: number; y: number }>) {
+    const posMap = new Map(buildings.map(b => [b.id, { x: b.x, y: b.y }]))
+    return roads.map(r => {
+      const src = posMap.get(r.sourceId) ?? { x: 0, y: 0 }
+      const tgt = posMap.get(r.targetId) ?? { x: 0, y: 0 }
+      return {
+        ...r,
+        svgPath: `M ${src.x},${src.y} L ${tgt.x},${tgt.y}`,
+      }
+    })
+  }
+
+  function layoutDistricts(communities: CommunityInput[]) {
+    // Generate convex hull polygons around each community's member buildings
+    // (simplified: use bounding box with padding for v1)
+    return communities.map(c => ({
+      id: c.id,
+      label: c.title,
+      polygon: computeDistrictPolygon(c.entityIds),
+      fill: districtColorForLevel(c.level),
+    }))
+  }
+
+  return { layoutBuildings, layoutRoads, layoutDistricts }
+}
+
+function spiralPosition(ring: number, side: number, offset: number) {
+  // Returns grid coordinates for a spiral placement pattern
+  const directions = [
+    { gx: 1, gy: 0 }, { gx: 0, gy: 1 },
+    { gx: -1, gy: 0 }, { gx: 0, gy: -1 },
+  ]
+  const dir = directions[side % 4]
+  return { gx: ring * dir.gx + offset * directions[(side + 1) % 4].gx,
+           gy: ring * dir.gy + offset * directions[(side + 1) % 4].gy }
+}
+
+function computeDistrictPolygon(entityIds: string[]): string {
+  // Placeholder: returns a diamond-shaped polygon centered on the group's centroid
+  return '' // Computed at runtime from actual building positions
+}
+
+function districtColorForLevel(level: number): string {
+  const colors = ['#CEEFE2', '#E8EDF9', '#F4E9F7', '#FDF1DF', '#E0F2FE']
+  return colors[level % colors.length]
+}
+```
+
+The spiral layout places the most-mentioned entity (highest `mention_count`) at the isometric center — the 'town spire' — with less-mentioned entities radiating outward in concentric rings. This creates a natural visual hierarchy where the most important concepts dominate the town center.
 
 ---
 

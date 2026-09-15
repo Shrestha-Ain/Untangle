@@ -8,10 +8,18 @@
 
 GraphRAG Explorer ingests unstructured documents, extracts entities and relationships into a knowledge graph, clusters the graph into hierarchical "communities" with LLM-generated summaries, and answers natural-language questions using a hybrid retrieval strategy that combines **graph traversal** (multi-hop reasoning, community-level synthesis) with **dense vector retrieval** (semantic chunk search). The frontend lets a user watch ingestion happen in real time, explore the resulting graph visually, and chat with the corpus — with the exact subgraph used to answer each question highlighted live.
 
+To make this complex graph exploration intuitive and engaging, the frontend presents the knowledge graph as an **isometric town** ("Research Realm") where:
+- Entities become architectural buildings (towers, lodges, arenas) styled by type
+- Relationships become illuminated energy roads with animated particle effects
+- Communities become named districts with colored terrain zones
+- Chat uses an RPG quest-dialogue pattern with an AI companion ("Professor Archimedes")
+- The whole experience is framed as a cozy city-builder game
+
 This is a from-scratch reimplementation of the core ideas in Microsoft Research's GraphRAG paper (Edge et al., 2024), which is exactly why it's a strong project: it's not "call an LLM," it's implementing a genuine information-retrieval architecture with graph algorithms, LLM orchestration, and a real evaluation story.
 
 ### Why this is a strong signal project
 - Combines graph algorithms (community detection), NLP (entity/relation extraction, coreference resolution), IR (hybrid retrieval), and full-stack engineering (real-time UI, async pipelines).
+- The gamified UX design demonstrates strong product design sensibility alongside engineering depth.
 - Produces a natural, quantifiable comparison: GraphRAG vs. plain vector-RAG on multi-hop questions — this becomes your best resume bullet.
 - Every layer (extraction quality, dedup quality, retrieval quality, answer faithfulness) has a metric you can report.
 
@@ -107,7 +115,10 @@ flowchart TB
 | Build tool | Vite | Fast dev server, standard for Vue 3 |
 | State management | Pinia | Official Vue store, simpler than Vuex |
 | Styling | Tailwind CSS | Fast to build clean UI without a design system |
-| Graph visualization | Cytoscape.js | Best-in-class for interactive graph exploration, good performance to ~5-10k nodes |
+| Design framework | Tailwind CSS + custom design tokens | Custom tokens for district colors, game shadows, glassmorphism utilities extend Tailwind for the gamified design system |
+| Fonts | Inter (interface) + JetBrains Mono (technical labels) + Fredoka (game headings) | Three-font system balances readability (Inter), code/data precision (JetBrains Mono), and playful game personality (Fredoka) |
+| Icons | Material Symbols Outlined (variable weight/fill) | Supports weight and fill axis variations, good icon coverage for both game and utility contexts |
+| Graph visualization | Custom SVG isometric town canvas + Cytoscape.js (headless, for layout computation) | The gamified 2.5D town metaphor requires custom SVG rendering; Cytoscape.js is retained headless for force-directed layout computation that feeds isometric grid placement |
 | Charts (eval dashboard) | Chart.js or ApexCharts | Simple, good Vue wrapper support |
 | Backend framework | FastAPI | Async-native, automatic OpenAPI docs, Pydantic validation — better fit than Flask for this workload (WebSockets + async I/O to 3 databases) |
 | ASGI server | Uvicorn (+ Gunicorn worker manager in prod) | Standard FastAPI deployment |
@@ -233,6 +244,40 @@ CREATE TABLE chat_messages (
     latency_ms INT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Gamification: player profile & progression
+CREATE TABLE player_profiles (
+    user_id UUID PRIMARY KEY REFERENCES users(id),
+    display_name TEXT NOT NULL DEFAULT 'Scholar',
+    level INT NOT NULL DEFAULT 1,
+    xp INT NOT NULL DEFAULT 0,
+    xp_to_next_level INT NOT NULL DEFAULT 100,
+    sparks INT NOT NULL DEFAULT 0,       -- citation gems earned
+    energy INT NOT NULL DEFAULT 100,     -- daily action budget
+    energy_max INT NOT NULL DEFAULT 100,
+    avatar_initials TEXT DEFAULT 'SC',
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Gamification: quest/achievement tracking
+CREATE TABLE quests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    document_id UUID REFERENCES documents(id),
+    quest_type TEXT NOT NULL,  -- 'ingestion' | 'exploration' | 'daily'
+    title TEXT NOT NULL,
+    description TEXT,
+    current_step INT DEFAULT 0,
+    total_steps INT DEFAULT 3,
+    status TEXT DEFAULT 'active',  -- active | completed | expired
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Each document gets a 'realm' identity for the gamified UI
+ALTER TABLE documents ADD COLUMN realm_name TEXT;
+ALTER TABLE documents ADD COLUMN realm_emoji TEXT DEFAULT '🏛️';
+ALTER TABLE documents ADD COLUMN realm_color TEXT DEFAULT 'emerald';
+ALTER TABLE documents ADD COLUMN realm_level INT DEFAULT 1;
 ```
 
 ### 5.3 Qdrant Collections
@@ -320,9 +365,14 @@ The `subgraph` field is what lets the frontend animate/highlight exactly the nod
 | WS | `/ws/documents/{id}/progress` | Live ingestion progress events |
 | GET | `/graph/{document_id}` | Paginated graph data (nodes/edges) for canvas rendering |
 | GET | `/graph/{document_id}/communities` | Community list + summaries, for the sidebar browser |
+| GET | `/graph/{document_id}/town` | Town-formatted graph data: entities as buildings with types, levels, positions; relationships as roads with energy colors |
 | POST | `/chat/sessions` | Create a chat session scoped to a document |
 | GET | `/chat/sessions/{id}/messages` | Message history |
 | WS | `/ws/chat/{session_id}` | Send question, receive streamed tokens + final subgraph payload |
+| GET | `/player/profile` | Current user's gamification stats (level, XP, sparks, energy) |
+| PUT | `/player/profile` | Update display name, avatar |
+| GET | `/player/quests` | Active and completed quests |
+| GET | `/documents/{id}/realm` | Document's realm metadata (name, emoji, color, level, district/tower/scholar counts) |
 | GET | `/eval/report` | Returns latest evaluation run results (see §11) |
 
 All endpoints (except auth) require `Authorization: Bearer <jwt>`.
@@ -342,32 +392,53 @@ All endpoints (except auth) require `Authorization: Bearer <jwt>`.
 
 ## 10. Frontend Architecture (Vue 3)
 
-```
+```text
 src/
+├── assets/
+│   └── town/                    (SVG building sprites, terrain tile templates)
 ├── stores/           (Pinia)
 │   ├── auth.ts
+│   ├── player.ts                (NEW: gamification state — XP, level, sparks, energy, quests)
 │   ├── documents.ts
 │   ├── chat.ts
 │   └── graph.ts
 ├── views/
 │   ├── LoginView.vue
-│   ├── DashboardView.vue         (upload + document list)
-│   └── ExplorerView.vue          (main split-screen: graph + chat)
+│   ├── HomeView.vue             (RENAMED: "Research Realm" dashboard — summon portal + realm cards)
+│   └── TownExplorerView.vue     (RENAMED: isometric town canvas + quest dialogue + entity drawer)
 ├── components/
-│   ├── UploadDropzone.vue
-│   ├── ProgressTracker.vue       (WS-driven ingestion progress bar)
-│   ├── GraphCanvas.vue           (Cytoscape.js wrapper)
-│   ├── ChatPanel.vue             (streaming chat + citations)
-│   ├── CommunityBrowser.vue      (sidebar: browse community summaries, click to filter graph)
-│   └── EntityDetailDrawer.vue    (click a node → show description, connections, source chunks)
+│   ├── home/
+│   │   ├── TopHudHeader.vue          (gamified header: brand, quest banner, sparks, energy, player card)
+│   │   ├── SummonPortal.vue          (upload dropzone + arXiv teleport input)
+│   │   ├── ConstructionPipeline.vue  (3-step ingestion progress as town construction quest)
+│   │   ├── RealmCard.vue             (knowledge town card: emoji, level badge, stats ribbon, enter button)
+│   │   └── FilterChips.vue           (realm category filter badges: All, NLP, Vision, Systems)
+│   ├── town/
+│   │   ├── TownCanvas.vue            (SVG isometric map with pan/zoom/select)
+│   │   ├── TowerBuilding.vue         (entity building sprite: type-colored, level-sized, animatable)
+│   │   ├── EnergyRoad.vue            (animated relationship edge beam with dash-array particles)
+│   │   ├── DistrictTurf.vue          (community cluster colored polygon zone)
+│   │   ├── TreeCluster.vue           (decorative foliage circles)
+│   │   └── FloatingMascot.vue        (cute animated companion drone)
+│   ├── hud/
+│   │   ├── TownNavBar.vue            (top HUD: realm badge, tower filters, zoom controls, daily quest)
+│   │   ├── QuestDialogueBox.vue      (bottom-left RPG chat: Prof. Archimedes, streaming answers, clue accordion)
+│   │   ├── BuildingInfoCard.vue      (right sidebar: entity detail with level/mentions/roads stats)
+│   │   └── QuestClueAccordion.vue    (expandable formula/source chunk within dialogue)
+│   └── shared/
+│       ├── GameBadge.vue             (reusable pill badge: colored, with optional dot indicator)
+│       ├── StatCounter.vue           (level/mentions/roads stat box)
+│       └── XpBar.vue                 (gradient progress bar with percentage)
 └── composables/
     ├── useWebSocket.ts
-    └── useGraphHighlight.ts      (animates subgraph highlight when a chat answer arrives)
+    ├── useTownLayout.ts              (NEW: graph data → isometric building coordinates)
+    ├── usePanZoom.ts                 (NEW: mouse drag + scroll zoom for SVG canvas)
+    └── useGraphHighlight.ts          (ADAPTED: dims/highlights SVG building groups, not Cytoscape nodes)
 ```
 
-**Key UX detail worth building well:** when an answer streams in, the `subgraph` payload should trigger `GraphCanvas` to dim all non-relevant nodes and highlight/pulse the ones actually used, with a smooth Cytoscape.js layout transition. This single interaction is what makes the demo memorable in an interview — it visually proves the system reasoned over structure rather than just stuffing text into a prompt.
+**Key UX detail worth building well:** when an answer streams in through the Quest Dialogue, the `subgraph` payload triggers `TownCanvas` to dim all non-relevant buildings to 25% opacity with a grayscale wash, while the buildings and energy roads actually used in the answer pulse with a neon radial beacon beam. The `EnergyRoad` components along the traversal path animate with marching particle effects using SVG `stroke-dasharray`. This single interaction — the glowing town lighting up as the AI answers — is what makes the demo memorable. It visually proves the system reasoned over graph structure, presented through the metaphor of illuminating pathways through a living city.
 
-**Graph rendering at scale:** for graphs beyond a few thousand nodes, don't render the whole thing — fetch a windowed subgraph (e.g., top N entities by mention count, or the currently-focused community) and let the user expand nodes on click (`apoc.path.subgraphAll` with `maxLevel: 1` from the clicked node).
+**Town rendering at scale:** for towns with more entities than can comfortably render (~500+ buildings), show only the top-N entities by mention count as prominent towers, with remaining entities represented as small base-level buildings. Community districts act as natural visual clusters. Users can 'zoom into' a district to see its full building inventory, or click a building to expand its 1-hop neighborhood as newly placed adjacent structures.
 
 ---
 
@@ -408,6 +479,7 @@ qdrant:      # port 6333
 - Qdrant → Qdrant Cloud free tier
 - Backend + Celery worker → Railway or Render (two services from one repo)
 - Frontend → Vercel or Netlify (static Vite build, API calls to backend's public URL)
+> **Frontend rendering note:** The isometric town canvas is entirely SVG + CSS-based with no WebGL or canvas 2D dependency, keeping the static Vite build simple and compatible with all deployment targets. No GPU requirements on the client.
 
 **CI/CD (GitHub Actions):**
 - On PR: lint (`ruff`, `eslint`), run backend unit tests (`pytest`), run frontend type-check (`vue-tsc`).
