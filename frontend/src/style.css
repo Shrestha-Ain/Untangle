@@ -1,0 +1,68 @@
+/* ────────────────────────────────────────────────────────
+   Tailwind CSS directives
+   These are processed by PostCSS → Tailwind during build.
+   @base    → CSS normalize / reset
+   @components → component-layer utilities
+   @utilities  → all Tailwind utility classes
+   ──────────────────────────────────────────────────────── */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ────────────────────────────────────────────────────────
+   Base font & antialiasing
+   Applied globally so every component inherits Inter.
+   ──────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    font-family: "Inter", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-surface text-slate-800;
+  }
+}
+
+/* ────────────────────────────────────────────────────────
+   Custom utility classes for the Town Canvas (SVG-based)
+   These target SVG elements and can't be expressed as
+   Tailwind utilities alone since they use SVG properties.
+   ──────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Energy road — marching particle animation on SVG paths */
+  .energy-stream {
+    stroke-dasharray: 8, 12;
+    animation: particle-run 1.4s linear infinite;
+  }
+
+  /* Town building states — toggled by JS when a chat answer arrives */
+  .town-building,
+  .energy-road {
+    transition: opacity 0.4s ease, filter 0.4s ease;
+  }
+
+  /* Non-relevant buildings fade and desaturate */
+  .dimmed {
+    opacity: 0.15;
+    filter: grayscale(0.8);
+  }
+
+  /* Query-relevant buildings glow with a cyan drop-shadow */
+  .highlighted {
+    opacity: 1;
+    filter: drop-shadow(0 0 24px rgba(56, 189, 248, 0.45));
+  }
+
+  /* Glassmorphic panel — reusable across HUD panels, chat, info card */
+  .glass-panel {
+    @apply bg-white/90 backdrop-blur-md border border-white/60;
+    @apply shadow-hud rounded-2xl;
+  }
+
+  .glass-panel-heavy {
+    @apply bg-white/95 backdrop-blur-xl border border-white/80;
+    @apply shadow-hud-lg rounded-3xl;
+  }
+}
