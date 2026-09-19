@@ -1,17 +1,12 @@
 /* ────────────────────────────────────────────────────────
    Tailwind CSS directives
-   These are processed by PostCSS → Tailwind during build.
-   @base    → CSS normalize / reset
-   @components → component-layer utilities
-   @utilities  → all Tailwind utility classes
    ──────────────────────────────────────────────────────── */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ────────────────────────────────────────────────────────
-   Base font & antialiasing
-   Applied globally so every component inherits Inter.
+   Base
    ──────────────────────────────────────────────────────── */
 @layer base {
   html {
@@ -21,48 +16,57 @@
   }
 
   body {
-    @apply bg-surface text-slate-800;
+    background-color: #F7F6F3;
+    color: #1C1B18;
   }
 }
 
 /* ────────────────────────────────────────────────────────
-   Custom utility classes for the Town Canvas (SVG-based)
-   These target SVG elements and can't be expressed as
-   Tailwind utilities alone since they use SVG properties.
+   Custom utilities — knowledge map canvas (SVG-specific)
    ──────────────────────────────────────────────────────── */
 @layer utilities {
-  /* Energy road — marching particle animation on SVG paths */
+  /* Energy road particle stream */
   .energy-stream {
-    stroke-dasharray: 8, 12;
+    stroke-dasharray: 8, 14;
     animation: particle-run 1.4s linear infinite;
   }
 
-  /* Town building states — toggled by JS when a chat answer arrives */
+  /* Cross-source context road — dashed, warm tan */
+  .source-link-stream {
+    stroke-dasharray: 4, 8;
+    stroke: #B8A87A;
+    opacity: 0.7;
+  }
+
+  /* Town building / road transition base */
   .town-building,
   .energy-road {
-    transition: opacity 0.4s ease, filter 0.4s ease;
+    transition: opacity 0.35s ease, filter 0.35s ease;
   }
 
-  /* Non-relevant buildings fade and desaturate */
+  /* Non-relevant buildings — dimmed during Regulus answer */
   .dimmed {
-    opacity: 0.15;
-    filter: grayscale(0.8);
+    opacity: 0.18;
+    filter: grayscale(0.75);
   }
 
-  /* Query-relevant buildings glow with a cyan drop-shadow */
+  /* Answer-relevant buildings — soft glow highlight */
   .highlighted {
     opacity: 1;
-    filter: drop-shadow(0 0 24px rgba(56, 189, 248, 0.45));
+    filter: drop-shadow(0 0 14px rgba(107, 163, 190, 0.40));
   }
 
-  /* Glassmorphic panel — reusable across HUD panels, chat, info card */
+  /* Selected building — pulse ring visible, slightly elevated */
+  .selected {
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(61, 107, 90, 0.30));
+  }
+
+  /* Glassmorphic HUD panel — used for Regulus panel, detail sidebar, nav bar */
   .glass-panel {
-    @apply bg-white/90 backdrop-blur-md border border-white/60;
-    @apply shadow-hud rounded-2xl;
-  }
-
-  .glass-panel-heavy {
-    @apply bg-white/95 backdrop-blur-xl border border-white/80;
-    @apply shadow-hud-lg rounded-3xl;
+    background-color: rgba(247, 246, 243, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(212, 211, 206, 0.80);
   }
 }

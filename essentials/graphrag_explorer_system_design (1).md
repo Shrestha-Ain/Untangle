@@ -6,21 +6,25 @@
 
 ## 1. Project Overview
 
-GraphRAG Explorer ingests unstructured documents, extracts entities and relationships into a knowledge graph, clusters the graph into hierarchical "communities" with LLM-generated summaries, and answers natural-language questions using a hybrid retrieval strategy that combines **graph traversal** (multi-hop reasoning, community-level synthesis) with **dense vector retrieval** (semantic chunk search). The frontend lets a user watch ingestion happen in real time, explore the resulting graph visually, and chat with the corpus — with the exact subgraph used to answer each question highlighted live.
+Untangle ingests unstructured documents — research papers, academic books, and textbooks — extracts entities and relationships into a knowledge graph, clusters the graph into hierarchical communities with LLM-generated summaries, and answers natural-language questions using a hybrid retrieval strategy that combines graph traversal (multi-hop reasoning, community-level synthesis) with dense vector retrieval (semantic chunk search). The frontend lets a user upload a source, watch ingestion happen in real time, explore the resulting knowledge graph visually as an interactive isometric map, and converse with it through Regulus, an AI guide — with the exact subgraph used to answer each question highlighted live on the map.
 
-To make this complex graph exploration intuitive and engaging, the frontend presents the knowledge graph as an **isometric town** ("Research Realm") where:
-- Entities become architectural buildings (towers, lodges, arenas) styled by type
-- Relationships become illuminated energy roads with animated particle effects
-- Communities become named districts with colored terrain zones
-- Chat uses an RPG quest-dialogue pattern with an AI companion ("Professor Archimedes")
-- The whole experience is framed as a cozy city-builder game
+Untangle supports two distinct modes:
 
-This is a from-scratch reimplementation of the core ideas in Microsoft Research's GraphRAG paper (Edge et al., 2024), which is exactly why it's a strong project: it's not "call an LLM," it's implementing a genuine information-retrieval architecture with graph algorithms, LLM orchestration, and a real evaluation story.
+**Research Mode (Papers):** Ingests academic papers (PDF, arXiv link). Extracts named entities (people, organisations, concepts, locations) and their relationships. Clusters them into thematic communities. The knowledge map renders entities as towers, relationships as roads between them, and communities as named districts. Cross-paper linking: if a concept requires context outside the current paper's scope, Untangle auto-suggests semantically related papers from the user's library; users can also manually import an additional paper to extend the map.
+
+**Study Mode (Books):** Ingests textbooks and study books (PDF, EPUB, TXT). Extracts the structural hierarchy of the material — chapters become districts, sections/topics become towers, sub-topics become sub-towers. Key concepts are linked by roads where conceptual relationships exist. If a topic references something outside the book's scope, Untangle flags it and auto-suggests external sources; the user can also manually import any additional book or paper to extend the map at any time.
+
+Both modes share the same isometric canvas engine. The AI guide Regulus adjusts its conversational framing based on mode — citation and methodology focus in Research Mode; concept explanation and exam-preparation focus in Study Mode.
+
+To structure knowledge acquisition, both modes support **Path-Based Learning Traversal** — laying a sequential curriculum trail (foundational prerequisite concepts → intermediate mechanisms → advanced synthesis) over the network with an interactive step-by-step HUD. Furthermore, each building provides a **Deep Topic Reader** allowing students and researchers to read all compiled source chunks, definitions, and formulas related to that concept in one comprehensive reading pane.
+
+This is a from-scratch reimplementation of the core ideas in Microsoft Research's GraphRAG paper (Edge et al., 2024), extended to support structured academic material beyond unstructured research papers.
 
 ### Why this is a strong signal project
-- Combines graph algorithms (community detection), NLP (entity/relation extraction, coreference resolution), IR (hybrid retrieval), and full-stack engineering (real-time UI, async pipelines).
-- The gamified UX design demonstrates strong product design sensibility alongside engineering depth.
-- Produces a natural, quantifiable comparison: GraphRAG vs. plain vector-RAG on multi-hop questions — this becomes your best resume bullet.
+- Combines graph algorithms (community detection, hierarchical clustering, topological dependency sorting), NLP (entity/relation extraction, structural hierarchy extraction), IR (hybrid retrieval), and full-stack engineering (real-time UI, async pipelines).
+- The dual-mode design (papers vs. books) demonstrates product thinking — the same technical infrastructure adapted to two meaningfully different user journeys.
+- Path-based learning traversal transforms abstract graph networks into structured curricula for exam preparation and systematic research study.
+- Produces a natural, quantifiable comparison: GraphRAG vs. plain vector-RAG on multi-hop questions — your best resume bullet.
 - Every layer (extraction quality, dedup quality, retrieval quality, answer faithfulness) has a metric you can report.
 
 ---
@@ -28,10 +32,16 @@ This is a from-scratch reimplementation of the core ideas in Microsoft Research'
 ## 2. Goals & Non-Goals
 
 **Goals**
-- Ingest PDF/TXT/DOCX documents and build a queryable knowledge graph automatically.
-- Support both **local search** (specific, entity-centered questions) and **global search** (broad, thematic questions using community summaries) — the two retrieval modes from the GraphRAG paper.
-- Real-time ingestion progress and streaming chat answers.
-- Visual graph exploration with the retrieved subgraph highlighted per answer.
+- Ingest PDF/TXT/DOCX/EPUB documents in either Research Mode (papers) or Study Mode (books/textbooks) and build a queryable, interactive knowledge graph automatically.
+- Research Mode: extract entities and relationships, cluster into communities, enable multi-hop reasoning across the graph.
+- Study Mode: extract structural hierarchy (chapter → section → topic → sub-topic), link concepts by relationship, support cross-source extension at any time.
+- Support both local search (specific, entity/concept-centred questions) and global search (broad, thematic questions using community summaries) — the two retrieval modes from the GraphRAG paper.
+- Real-time ingestion progress and streaming chat answers via Regulus, the AI guide.
+- Visual knowledge map exploration with the retrieved subgraph highlighted per answer, on a shared isometric canvas for both modes.
+- **Path-Based Learning Traversal**: extract concept dependency order and provide an illuminated sequential learning path with next/prev navigation.
+- **Deep Topic Reader**: compile all source chunks, mathematical formulas, and relational context for any selected tower into an in-depth reading dossier.
+- **Exam Gist & High-Yield Revision Sheet**: elaborate, rapid-review synthesis of the most critical topics across the source (core formulas, definitions, and likely exam questions) designed for time-constrained exam study.
+- Auto-suggestion of related sources when a concept requires outside context (both modes), plus manual source import at any time (both modes).
 - A reproducible evaluation harness comparing GraphRAG vs. vector-only RAG.
 
 **Non-goals (cut for v1, list as "future work")**
@@ -111,12 +121,12 @@ flowchart TB
 
 | Layer | Choice | Why |
 |---|---|---|
-| Frontend framework | Vue 3 + Composition API + TypeScript | Your stated preference; TS catches API-shape mismatches early |
+| Frontend framework | Vue 3 + Composition API + TypeScript | TS catches API-shape mismatches early |
 | Build tool | Vite | Fast dev server, standard for Vue 3 |
 | State management | Pinia | Official Vue store, simpler than Vuex |
 | Styling | Tailwind CSS | Fast to build clean UI without a design system |
 | Design framework | Tailwind CSS + custom design tokens | Custom tokens for district colors, game shadows, glassmorphism utilities extend Tailwind for the gamified design system |
-| Fonts | Inter (interface) + JetBrains Mono (technical labels) + Fredoka (game headings) | Three-font system balances readability (Inter), code/data precision (JetBrains Mono), and playful game personality (Fredoka) |
+| Fonts | Inter (interface) + JetBrains Mono (technical labels) | Two-font system: Inter for all UI text, JetBrains Mono for code labels, edge relations, and telemetry data |
 | Icons | Material Symbols Outlined (variable weight/fill) | Supports weight and fill axis variations, good icon coverage for both game and utility contexts |
 | Graph visualization | Custom SVG isometric town canvas + Cytoscape.js (headless, for layout computation) | The gamified 2.5D town metaphor requires custom SVG rendering; Cytoscape.js is retained headless for force-directed layout computation that feeds isometric grid placement |
 | Charts (eval dashboard) | Chart.js or ApexCharts | Simple, good Vue wrapper support |
@@ -131,7 +141,7 @@ flowchart TB
 | Embeddings | OpenAI `text-embedding-3-small` or open-source `bge-small-en-v1.5` via `sentence-transformers` | Open-source option removes per-call cost for large corpora |
 | Document parsing | `unstructured` library (or `pypdf`/`python-docx` directly) | Handles PDF/DOCX/TXT uniformly |
 | NLP preprocessing | spaCy (sentence segmentation), optional `fastcoref` for coreference resolution | Improves entity dedup quality before LLM extraction |
-| Auth | `fastapi-users` or hand-rolled JWT (OAuth2 password flow) | Standard, well-documented |
+| Auth | Clerk (clerk-backend-api SDK) | Handles session tokens, OAuth, MFA, JWKS rotation — team is integrating Clerk on the backend; frontend uses @clerk/vue |
 | Containerization | Docker + Docker Compose | One-command local spin-up of all 5 services |
 | Deployment | Backend+Celery: Railway/Render · Frontend: Vercel/Netlify · Neo4j: AuraDB free tier · Postgres: Supabase/Railway · Redis: Upstash · Qdrant: Qdrant Cloud free tier | All have generous free tiers, no server management |
 | CI/CD | GitHub Actions | Lint + test on PR, build/push images, auto-deploy on merge |
@@ -148,9 +158,9 @@ flowchart TB
 **Node labels**
 
 ```
-(:Document {id, title, filename, uploaded_at, status})
+(:Document {id, title, filename, uploaded_at, status, source_mode})
 (:Chunk {id, text, chunk_index, document_id, embedding_id})
-(:Entity {id, name, type, description, embedding_id, mention_count})
+(:Entity {id, name, type, description, embedding_id, mention_count, path_order})
 (:Community {id, level, title, summary, entity_count})
 ```
 
@@ -162,6 +172,61 @@ flowchart TB
 (:Entity)-[:RELATES_TO {relation_type, description, weight, source_chunk_id}]->(:Entity)
 (:Entity)-[:BELONGS_TO]->(:Community)
 (:Community)-[:PARENT_OF]->(:Community)   // hierarchical community structure
+(:Entity)-[:PREREQUISITE_FOR]->(:Entity)  // concept dependency
+(:Entity)-[:NEXT_IN_PATH {order: int}]->(:Entity) // sequential curriculum path
+```
+
+#### Study Mode — Structural Hierarchy Nodes
+
+When `Document.source_mode = 'study'`, the ingestion pipeline extracts a structural hierarchy instead of named entities:
+
+```
+(:Chapter {id, title, chapter_number, document_id, summary, path_order})
+(:Section {id, title, section_number, chapter_id, summary, path_order})
+(:Topic {id, name, description, section_id, depth_level, embedding_id, path_order})
+(:SubTopic {id, name, description, parent_topic_id, embedding_id, path_order})
+```
+
+Additional relationship types for Study Mode:
+
+```
+(:Document)-[:HAS_CHAPTER]->(:Chapter)
+(:Chapter)-[:HAS_SECTION]->(:Section)
+(:Section)-[:HAS_TOPIC]->(:Topic)
+(:Topic)-[:HAS_SUBTOPIC]->(:SubTopic)
+(:Topic)-[:CONCEPTUALLY_LINKS]->(:Topic)   // same or cross-book conceptual relationship
+(:Topic)-[:PREREQUISITE_FOR]->(:Topic)     // learning dependency
+(:Topic)-[:NEXT_IN_PATH {order: int}]->(:Topic) // sequential learning journey
+(:Topic)-[:NEEDS_CONTEXT {reason: str, auto_suggested: bool}]->(:Topic)  // cross-source context link
+(:Document)-[:LINKED_SOURCE {link_reason: str, mode: 'auto'|'manual'}]->(:Document)
+```
+
+Cross-mode rule: A Study Mode document can link to a Research Mode document via `LINKED_SOURCE` when a book topic auto-suggests or manually imports a paper for deeper context, and vice versa.
+
+#### 5.1.1 Topic Dossier Data Structure (Deep Reader)
+
+When a user clicks "Read Everything Related to This Topic", the backend compiles a comprehensive topic dossier:
+
+```json
+{
+  "node_id": "top-1-1-1",
+  "name": "Fork System Call",
+  "type": "TOPIC",
+  "path_step": 1,
+  "summary": "Creates a child process that is an almost exact clone of the caller.",
+  "key_formulas_or_code": [
+    "pid_t rc = fork();\nif (rc < 0) { /* error */ }\nelse if (rc == 0) { /* child */ }\nelse { /* parent */ }"
+  ],
+  "raw_chunks": [
+    {
+      "chunk_id": "chunk-14",
+      "section_ref": "OSTEP §5.1",
+      "text": "The fork() system call is used in Unix systems to create a new process..."
+    }
+  ],
+  "prerequisites": ["Process Concept"],
+  "next_concepts": ["Exec System Call", "Wait System Call"]
+}
 ```
 
 **Example Cypher — writing an extracted triple (idempotent via MERGE):**
@@ -215,6 +280,20 @@ CREATE TABLE documents (
     processed_at TIMESTAMPTZ,
     neo4j_document_id TEXT,
     error_message TEXT
+);
+
+-- Mode column determines which ingestion pipeline and canvas semantics to use
+ALTER TABLE documents ADD COLUMN source_mode TEXT NOT NULL DEFAULT 'research';  -- 'research' | 'study'
+ALTER TABLE documents ADD COLUMN display_title TEXT;  -- user-editable friendly name for the map
+
+-- Cross-source links between documents (both modes)
+CREATE TABLE document_links (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    source_document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    target_document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    link_reason TEXT,                         -- why this link was created
+    link_mode TEXT DEFAULT 'manual',          -- 'auto' (AI suggested) | 'manual' (user imported)
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE jobs (
@@ -357,22 +436,26 @@ The `subgraph` field is what lets the frontend animate/highlight exactly the nod
 | Method | Endpoint | Purpose |
 |---|---|---|
 | POST | `/auth/register` | Create account |
-| POST | `/auth/login` | Returns JWT |
+| POST | `/auth/login` | Returns JWT / Clerk session |
 | POST | `/documents/upload` | Multipart upload, creates `Document`, enqueues ingestion job, returns `job_id` |
 | GET | `/documents` | List current user's documents + status |
 | GET | `/documents/{id}` | Document detail + processing metadata |
+| GET | `/documents/{id}/mode` | Returns the `source_mode` ('research' or 'study') and top-level structural metadata for the document |
+| GET | `/graph/{document_id}/study-map` | Study Mode: returns the chapter→section→topic→subtopic hierarchy as a flat building list and road list for the canvas |
+| GET | `/graph/{document_id}/town` | Research Mode: returns entities as buildings with types and positions; relationships as roads |
+| GET | `/graph/{document_id}/learning-path` | Returns ordered list of node IDs representing the recommended sequential curriculum / learning journey |
+| GET | `/graph/{document_id}/nodes/{id}/dossier` | Returns complete compiled reading dossier for a node (synthesis, key formulas, all raw chunks, prerequisites) |
+| GET | `/graph/{document_id}/exam-gist` | Returns document-wide high-yield revision sheet (top high-yield topics, core formulas, definitions to memorize, exam traps) |
+| GET | `/documents/{id}/suggest-sources` | AI-powered suggestion of related documents (from user's library + semantic search) that could provide outside context for this document |
+| POST | `/documents/{id}/link-source` | Links an external source document to this document (both auto-suggest accept and manual import) |
+| DELETE | `/documents/{id}/link-source/{link_id}` | Removes a previously created cross-source link |
 | DELETE | `/documents/{id}` | Remove document + cascade-delete graph nodes/vectors |
 | WS | `/ws/documents/{id}/progress` | Live ingestion progress events |
 | GET | `/graph/{document_id}` | Paginated graph data (nodes/edges) for canvas rendering |
 | GET | `/graph/{document_id}/communities` | Community list + summaries, for the sidebar browser |
-| GET | `/graph/{document_id}/town` | Town-formatted graph data: entities as buildings with types, levels, positions; relationships as roads with energy colors |
 | POST | `/chat/sessions` | Create a chat session scoped to a document |
 | GET | `/chat/sessions/{id}/messages` | Message history |
 | WS | `/ws/chat/{session_id}` | Send question, receive streamed tokens + final subgraph payload |
-| GET | `/player/profile` | Current user's gamification stats (level, XP, sparks, energy) |
-| PUT | `/player/profile` | Update display name, avatar |
-| GET | `/player/quests` | Active and completed quests |
-| GET | `/documents/{id}/realm` | Document's realm metadata (name, emoji, color, level, district/tower/scholar counts) |
 | GET | `/eval/report` | Returns latest evaluation run results (see §11) |
 
 All endpoints (except auth) require `Authorization: Bearer <jwt>`.
@@ -398,45 +481,45 @@ src/
 │   └── town/                    (SVG building sprites, terrain tile templates)
 ├── stores/           (Pinia)
 │   ├── auth.ts
-│   ├── player.ts                (NEW: gamification state — XP, level, sparks, energy, quests)
-│   ├── documents.ts
-│   ├── chat.ts
-│   └── graph.ts
+│   ├── documents.ts             (catalog, upload, active document state)
+│   ├── chat.ts                  (Regulus conversation, streaming, citations)
+│   └── graph.ts                 (nodes, roads, districts, learning path, highlighted subgraph)
 ├── views/
 │   ├── LoginView.vue
-│   ├── HomeView.vue             (RENAMED: "Research Realm" dashboard — summon portal + realm cards)
-│   └── TownExplorerView.vue     (RENAMED: isometric town canvas + quest dialogue + entity drawer)
+│   ├── RegisterView.vue
+│   ├── HomeView.vue             (smooth, lively dashboard with dual upload & library grid)
+│   └── TownExplorerView.vue     (isometric town canvas + HUDs + reader)
 ├── components/
 │   ├── home/
-│   │   ├── TopHudHeader.vue          (gamified header: brand, quest banner, sparks, energy, player card)
-│   │   ├── SummonPortal.vue          (upload dropzone + arXiv teleport input)
-│   │   ├── ConstructionPipeline.vue  (3-step ingestion progress as town construction quest)
-│   │   ├── RealmCard.vue             (knowledge town card: emoji, level badge, stats ribbon, enter button)
-│   │   └── FilterChips.vue           (realm category filter badges: All, NLP, Vision, Systems)
+│   │   ├── TopHudHeader.vue          (header: brand, Clerk user session)
+│   │   ├── SourceUploadPanel.vue     (dual-mode upload: left = Research Paper, right = Study Book)
+│   │   ├── IngestionProgress.vue     (shows real-time ingestion progress, mode-aware step labels)
+│   │   ├── MapCard.vue               (knowledge map card: title, mode badge, stats ribbon, Open Map button)
+│   │   └── FilterChips.vue           (category filter badges: All, Research Papers, Study Books)
 │   ├── town/
-│   │   ├── TownCanvas.vue            (SVG isometric map with pan/zoom/select)
-│   │   ├── TowerBuilding.vue         (entity building sprite: type-colored, level-sized, animatable)
-│   │   ├── EnergyRoad.vue            (animated relationship edge beam with dash-array particles)
-│   │   ├── DistrictTurf.vue          (community cluster colored polygon zone)
-│   │   ├── TreeCluster.vue           (decorative foliage circles)
-│   │   └── FloatingMascot.vue        (cute animated companion drone)
+│   │   ├── TownCanvas.vue            (SVG isometric map with pan/zoom/select, path trail)
+│   │   ├── TowerBuilding.vue         (2.5D building sprite: crystal spires, modern blocks, arenas, citadels — no flags)
+│   │   ├── EnergyRoad.vue            (animated relationship edge beam with particle streams)
+│   │   ├── DistrictTurf.vue          (community cluster / chapter colored polygon zone)
+│   │   └── TreeCluster.vue           (decorative foliage circles)
 │   ├── hud/
-│   │   ├── TownNavBar.vue            (top HUD: realm badge, tower filters, zoom controls, daily quest)
-│   │   ├── QuestDialogueBox.vue      (bottom-left RPG chat: Prof. Archimedes, streaming answers, clue accordion)
-│   │   ├── BuildingInfoCard.vue      (right sidebar: entity detail with level/mentions/roads stats)
-│   │   └── QuestClueAccordion.vue    (expandable formula/source chunk within dialogue)
+│   │   ├── TownNavBar.vue            (top HUD: map title, mode badge, type filters, zoom controls, Exam Gist trigger)
+│   │   ├── LearningPathStepper.vue   (NEW: Guided Journey stepper — Step X of N: Next/Prev navigation)
+│   │   ├── BuildingInfoCard.vue      (right sidebar: entity detail with stats & "Read Dossier" button)
+│   │   ├── TopicReaderModal.vue      (NEW: deep reader drawer displaying exam takeaways, all text chunks, formulas & synthesis)
+│   │   ├── ExamGistModal.vue         (NEW: document-wide high-yield revision sheet & rapid exam gist cheat sheet)
+│   │   └── RegulusPanel.vue          (AI guide Regulus: mode-aware, streaming answers, citations, source suggestions)
 │   └── shared/
-│       ├── GameBadge.vue             (reusable pill badge: colored, with optional dot indicator)
-│       ├── StatCounter.vue           (level/mentions/roads stat box)
-│       └── XpBar.vue                 (gradient progress bar with percentage)
+│       ├── ModeBadge.vue             (reusable pill badge for Research and Study modes)
+│       └── StatCounter.vue           (monospace stat counter box)
 └── composables/
     ├── useWebSocket.ts
-    ├── useTownLayout.ts              (NEW: graph data → isometric building coordinates)
-    ├── usePanZoom.ts                 (NEW: mouse drag + scroll zoom for SVG canvas)
-    └── useGraphHighlight.ts          (ADAPTED: dims/highlights SVG building groups, not Cytoscape nodes)
+    ├── useTownLayout.ts              (graph data → isometric spiral building coordinates)
+    ├── usePanZoom.ts                 (mouse drag + scroll zoom for SVG canvas)
+    └── useGraphHighlight.ts          (dims/highlights SVG building groups upon AI answer)
 ```
 
-**Key UX detail worth building well:** when an answer streams in through the Quest Dialogue, the `subgraph` payload triggers `TownCanvas` to dim all non-relevant buildings to 25% opacity with a grayscale wash, while the buildings and energy roads actually used in the answer pulse with a neon radial beacon beam. The `EnergyRoad` components along the traversal path animate with marching particle effects using SVG `stroke-dasharray`. This single interaction — the glowing town lighting up as the AI answers — is what makes the demo memorable. It visually proves the system reasoned over graph structure, presented through the metaphor of illuminating pathways through a living city.
+**Key UX detail worth building well:** when an answer streams in through the Regulus panel, the `subgraph` payload triggers `TownCanvas` to dim all non-relevant buildings to 25% opacity with a grayscale wash, while the buildings and roads actually used in the answer pulse with a soft radial glow. The `EnergyRoad` components along the traversal path animate with marching particle effects using SVG `stroke-dasharray`. This single interaction — the map lighting up as Regulus answers — is what makes the demo memorable.
 
 **Town rendering at scale:** for towns with more entities than can comfortably render (~500+ buildings), show only the top-N entities by mention count as prominent towers, with remaining entities represented as small base-level buildings. Community districts act as natural visual clusters. Users can 'zoom into' a district to see its full building inventory, or click a building to expand its 1-hop neighborhood as newly placed adjacent structures.
 

@@ -1,14 +1,16 @@
-# Untangle — Research Realm GraphRAG Explorer
+# Untangle — GraphRAG Knowledge Mapping Tool
 
-A from-scratch implementation of Microsoft's GraphRAG architecture, wrapped in a gamified **"Research Realm"** UI. Upload academic papers, watch them get transformed into an isometric knowledge town, and explore entity relationships through an RPG-style quest interface.
+Turn research papers and textbooks into interactive, explorable knowledge maps. Upload academic material, watch it get transformed into an isometric map of entities, topics, and their relationships, and query it through **Regulus**, an AI guide that reasons across the graph and highlights exactly what it used to answer.
 
-**Stack:** Vue 3 · TypeScript · Vite · Tailwind CSS · FastAPI · Neo4j · PostgreSQL · Qdrant · Redis · Celery
+**Stack:** Vue 3 · TypeScript · Vite · Tailwind CSS · FastAPI · Neo4j · PostgreSQL · Qdrant · Redis · Celery · Clerk
+
+**Two modes:**
+- **Research Mode** — Papers → entity/relationship/community knowledge maps
+- **Study Mode** — Books/textbooks → chapter → section → topic hierarchy maps
 
 ---
 
 ## Prerequisites
-
-Make sure you have these installed before anything else:
 
 | Tool | Min Version | Check |
 |---|---|---|
@@ -22,10 +24,6 @@ Install `uv` if you don't have it:
 # Windows (PowerShell)
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-OR
-
-pip install uv
-
 # macOS / Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
@@ -35,20 +33,13 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ## Backend Setup (FastAPI + uv)
 
 ```bash
-# 1. Navigate to the backend folder
 cd backend
-
-# 2. Create the virtual environment using the pinned Python version
 uv venv
-
-# 3. Install all dependencies from the lockfile (exact versions, fast)
 uv sync
-
-# 4. Copy the env template and fill in your secrets
 cp .env.example .env
 ```
 
-Open `.env` and set the required values:
+Open `.env` and fill in:
 
 ```env
 # Database connections
@@ -61,9 +52,8 @@ QDRANT_URL=http://localhost:6333
 # Redis / Celery
 REDIS_URL=redis://localhost:6379/0
 
-# JWT
-SECRET_KEY=your-secret-key-here          # generate with: openssl rand -hex 32
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
+# Clerk (backend JWT verification)
+CLERK_SECRET_KEY=sk_test_...
 
 # LLM API (use at least one)
 OPENAI_API_KEY=sk-...
@@ -71,100 +61,73 @@ ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 ```bash
-# 5. Run the development server (auto-reloads on file changes)
+# Start the FastAPI dev server
 uv run uvicorn app.main:app --reload --port 8000
 
-# 6. (Separate terminal) Run the Celery worker for async ingestion jobs
+# (Separate terminal) Start the Celery worker
 uv run celery -A app.core.celery_app worker --loglevel=info
 ```
 
-API will be live at **http://localhost:8000**  
-Interactive docs at **http://localhost:8000/docs**
+API: **http://localhost:8000**  
+Docs: **http://localhost:8000/docs**
 
-> **Dev tip:** You never need to activate the virtual environment manually.
-> `uv run <command>` always uses the project's `.venv` automatically.
+> `uv run <command>` always uses the project's `.venv` — no manual activation needed.
 
 ---
 
 ## Frontend Setup (Vue 3 + Vite + Tailwind)
 
 ```bash
-# 1. Navigate to the frontend folder
 cd frontend
-
-# 2. Install all dependencies from package-lock.json
 npm install
-
-# 3. Copy the env template
 cp .env.example .env.local
 ```
 
 Open `frontend/.env.local` and set:
 
 ```env
-# Points the Axios client at your local FastAPI server
 VITE_API_URL=http://localhost:8000
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
 
 ```bash
-# 4. Start the dev server (hot-reloads on file changes)
 npm run dev
 ```
 
-Frontend will be live at **http://localhost:5173**
+Frontend: **http://localhost:5173**
 
-> **How the proxy works:** In development, the Vite dev server proxies any
-> request to `/api/*` → `http://localhost:8000` and `/ws/*` → `ws://localhost:8000`.
-> This means you never hit CORS issues locally — the browser only ever talks to port 5173.
+> In development, Vite proxies `/api/*` → `http://localhost:8000` and `/ws/*` → `ws://localhost:8000`. No CORS issues locally.
 
 ---
 
 ## Running Both Together
 
-Open **two terminals** side by side:
-
 ```bash
-# Terminal 1 — Backend
-cd backend
-uv run uvicorn app.main:app --reload --port 8000
+# Terminal 1
+cd backend && uv run uvicorn app.main:app --reload --port 8000
 
-# Terminal 2 — Frontend
-cd frontend
-npm run dev
+# Terminal 2
+cd frontend && npm run dev
 ```
 
-Then open **http://localhost:5173** in your browser.
+Open **http://localhost:5173**, sign in with Clerk, and upload your first document.
 
 ---
 
-## Other Useful Commands
+## Useful Commands
 
 ### Backend
-
 ```bash
-# Run tests
-uv run pytest
-
-# Lint & format
-uv run ruff check .
-uv run ruff format .
-
-# Add a new dependency
-uv add <package-name>
-
-# Add a dev-only dependency
-uv add --dev <package-name>
+uv run pytest              # run tests
+uv run ruff check .        # lint
+uv run ruff format .       # format
+uv add <package>           # add dependency
+uv add --dev <package>     # add dev dependency
 ```
 
 ### Frontend
-
 ```bash
-# Type-check without building
-npm run type-check
-
-# Build for production
-npm run build
-
-# Preview the production build locally
-npm run preview
+npm run build              # production build
+npm run preview            # preview production build locally
+npx vue-tsc --noEmit       # type-check without building
 ```

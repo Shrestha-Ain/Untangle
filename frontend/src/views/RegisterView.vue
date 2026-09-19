@@ -3,103 +3,137 @@ import { SignUp } from '@clerk/vue'
 </script>
 
 <template>
-  <div class="relative min-h-screen w-full bg-[#F4F7F4] text-slate-800 flex flex-col justify-between overflow-x-hidden selection:bg-emerald-200 selection:text-emerald-900">
-    <!-- Ambient background dots & glow orbs -->
+  <div
+    class="relative min-h-screen w-full flex flex-col"
+    style="background-color: #F7F6F3;"
+  >
+    <!-- Subtle dot grid texture -->
     <div
-      class="absolute inset-0 pointer-events-none opacity-60"
-      style="background-image: radial-gradient(rgba(0, 104, 95, 0.12) 1.2px, transparent 1.2px); background-size: 28px 28px;"
+      class="absolute inset-0 pointer-events-none"
+      style="background-image: radial-gradient(rgba(28,27,24,0.07) 1px, transparent 1px); background-size: 24px 24px;"
     ></div>
-    <div class="absolute -top-32 -left-32 w-96 h-96 bg-purple-300/25 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-emerald-300/30 rounded-full blur-3xl pointer-events-none"></div>
 
-    <!-- Top Branding Navbar -->
-    <header class="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-      <router-link to="/" class="flex items-center gap-3 group">
-        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-game-btn transition-transform group-hover:scale-105">
-          <span class="material-symbols-outlined text-2xl">account_balance</span>
+    <!-- Minimal top nav -->
+    <header class="relative z-10 w-full max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div
+          class="w-8 h-8 rounded-lg flex items-center justify-center"
+          style="background-color: #3D6B5A;"
+        >
+          <span class="material-symbols-outlined text-white" style="font-size: 18px;">hub</span>
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="font-extrabold text-lg tracking-tight text-slate-900">Research Realm</span>
-            <span class="hidden sm:inline-flex px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded-full border border-emerald-200">
-              New Scholar
-            </span>
-          </div>
-          <p class="text-xs text-slate-500 font-medium">Citation Archipelago • Academy Enrollment</p>
-        </div>
-      </router-link>
+        <span class="font-bold text-base tracking-tight" style="color: #1C1B18;">Untangle</span>
+      </div>
 
-      <div class="flex items-center gap-2">
-        <span class="text-xs text-slate-500 hidden sm:inline">Already enrolled?</span>
+      <div class="flex items-center gap-3">
+        <span class="text-sm" style="color: #8A877F;">Already have an account?</span>
         <router-link
           to="/login"
-          class="px-3.5 py-1.5 text-xs font-bold text-slate-800 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors shadow-sm"
+          class="px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors"
+          style="color: #1C1B18; border-color: #D4D3CE; background: white;"
         >
-          Sign In 📜
+          Sign in
         </router-link>
       </div>
     </header>
 
-    <!-- Main Content Area -->
-    <main class="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 py-8 flex items-center justify-center">
-      <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-        
-        <!-- Left Column: Scholarship Perks & Academy Lore -->
-        <div class="lg:col-span-6 space-y-6">
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-sm">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>COMMENCE YOUR SCHOLARSHIP</span>
-          </div>
+    <!-- Main two-column layout -->
+    <main class="relative z-10 flex-1 w-full max-w-6xl mx-auto px-6 py-10 flex items-center">
+      <div class="w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
-          <div class="space-y-3">
-            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
-              Begin your journey as a <br />
-              <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600">
-                Master Cartographer.
-              </span>
+        <!-- Left: What you get with Untangle -->
+        <div class="space-y-8">
+          <div class="space-y-4">
+            <h1 class="text-4xl font-bold tracking-tight leading-tight" style="color: #1C1B18;">
+              Start mapping<br />your knowledge.
             </h1>
-            <p class="text-slate-600 text-base leading-relaxed max-w-lg">
-              Enlist in the Research Realm to turn any research paper into an interactive, multi-agent knowledge town with automated graph indexing.
+            <p class="text-base leading-relaxed" style="color: #5C5A54; max-width: 400px;">
+              Create an account to upload research papers, textbooks, or any academic material and turn them into an interactive, queryable knowledge graph.
             </p>
           </div>
 
-          <!-- Scholar Perks Grid -->
-          <div class="space-y-3 pt-1">
-            <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/80 backdrop-blur-md border border-white/80 shadow-sm">
-              <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center flex-shrink-0">
-                <span class="material-symbols-outlined text-xl">auto_awesome</span>
+          <!-- Two mode cards, side by side -->
+          <div class="grid grid-cols-2 gap-3">
+            <!-- Research Mode -->
+            <div
+              class="rounded-xl p-4 border space-y-2"
+              style="background-color: #E8F0EC; border-color: #C4D8CC;"
+            >
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined" style="font-size: 16px; color: #3D6B5A;">description</span>
+                <span class="text-xs font-mono font-bold uppercase tracking-wider" style="color: #3D6B5A;">Research</span>
               </div>
-              <div>
-                <h4 class="text-sm font-bold text-slate-900">Level 1 Apprentice Scholar Card</h4>
-                <p class="text-xs text-slate-500 mt-0.5">Receive 100 Energy sparks and start unlocking research badges with each paper you ingest.</p>
-              </div>
+              <p class="text-xs leading-relaxed" style="color: #2C5043;">
+                Papers → entity maps, relationship roads, community clusters, cross-paper context linking.
+              </p>
             </div>
 
-            <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/80 backdrop-blur-md border border-white/80 shadow-sm">
-              <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
-                <span class="material-symbols-outlined text-xl">account_tree</span>
+            <!-- Study Mode -->
+            <div
+              class="rounded-xl p-4 border space-y-2"
+              style="background-color: #F5EFE3; border-color: #DDD0B0;"
+            >
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined" style="font-size: 16px; color: #B8924A;">menu_book</span>
+                <span class="text-xs font-mono font-bold uppercase tracking-wider" style="color: #B8924A;">Study</span>
               </div>
-              <div>
-                <h4 class="text-sm font-bold text-slate-900">Leiden Community Clustering</h4>
-                <p class="text-xs text-slate-500 mt-0.5">Automatic hierarchical clustering that partitions concepts into named thematic districts.</p>
-              </div>
+              <p class="text-xs leading-relaxed" style="color: #8C6A2C;">
+                Books → chapter districts, topic towers, subtopic structures, exam-ready concept paths.
+              </p>
             </div>
+          </div>
 
-            <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/80 backdrop-blur-md border border-white/80 shadow-sm">
-              <div class="w-9 h-9 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center flex-shrink-0">
-                <span class="material-symbols-outlined text-xl">psychology</span>
-              </div>
-              <div>
-                <h4 class="text-sm font-bold text-slate-900">Professor Archimedes AI Companion</h4>
-                <p class="text-xs text-slate-500 mt-0.5">Stream citations with formula clues, grounded in verifiable knowledge graph subgraphs.</p>
-              </div>
+          <!-- Regulus guide callout -->
+          <div
+            class="flex items-start gap-3 p-4 rounded-xl border"
+            style="background: white; border-color: #E4E3DF;"
+          >
+            <div
+              class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
+              style="background-color: #EFEFED; color: #5C5A54;"
+            >
+              R
+            </div>
+            <div>
+              <p class="text-sm font-semibold" style="color: #1C1B18;">Regulus, your AI guide</p>
+              <p class="text-xs leading-relaxed mt-0.5" style="color: #5C5A54;">
+                Ask questions about your material. Regulus answers with citations and highlights the exact paths through the knowledge map it used to reason.
+              </p>
+            </div>
+          </div>
+
+          <!-- Node type legend — shows off the muted color palette -->
+          <div>
+            <p class="text-xs font-mono uppercase tracking-wider mb-2" style="color: #8A877F;">Node types on your map</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono" style="background: #EBE5F5; color: #7C6FA0;">
+                <span class="w-1.5 h-1.5 rounded-full inline-block flex-shrink-0" style="background: #7C6FA0;"></span>Person
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono" style="background: #EEE8DC; color: #C49A3C;">
+                <span class="w-1.5 h-1.5 rounded-full inline-block flex-shrink-0" style="background: #C49A3C;"></span>Organisation
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono" style="background: #E5F3EE; color: #4E9A7D;">
+                <span class="w-1.5 h-1.5 rounded-full inline-block flex-shrink-0" style="background: #4E9A7D;"></span>Concept
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono" style="background: #F2E8E8; color: #A85A5A;">
+                <span class="w-1.5 h-1.5 rounded-full inline-block flex-shrink-0" style="background: #A85A5A;"></span>Location
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono" style="background: #E5EEF3; color: #4E8FA8;">
+                <span class="w-1.5 h-1.5 rounded-full inline-block flex-shrink-0" style="background: #4E8FA8;"></span>Community
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono" style="background: #EDF0EA; color: #7A8C6A;">
+                <span class="w-1.5 h-1.5 rounded-full inline-block flex-shrink-0" style="background: #7A8C6A;"></span>Chapter
+              </span>
             </div>
           </div>
         </div>
 
-        <!-- Right Column: Clerk Sign Up Component -->
-        <div class="lg:col-span-6 flex justify-center lg:justify-end">
-          <div class="w-full max-w-md bg-white/95 backdrop-blur-xl p-2 sm:p-4 rounded-3xl border border-white shadow-hud-lg">
+        <!-- Right: Clerk SignUp -->
+        <div class="flex justify-center lg:justify-end">
+          <div
+            class="w-full rounded-2xl border overflow-hidden"
+            style="max-width: 420px; background: white; border-color: #E4E3DF; box-shadow: 0 4px 20px rgba(28,27,24,0.08);"
+          >
             <SignUp
               routing="path"
               path="/register"
@@ -108,25 +142,26 @@ import { SignUp } from '@clerk/vue'
               after-sign-in-url="/"
               :appearance="{
                 variables: {
-                  colorPrimary: '#00685f',
+                  colorPrimary: '#3D6B5A',
                   colorBackground: '#ffffff',
-                  colorText: '#0f172a',
-                  colorTextSecondary: '#64748b',
-                  colorInputBackground: '#f8fafc',
-                  colorInputBorder: '#e2e8f0',
-                  borderRadius: '0.875rem',
+                  colorText: '#1C1B18',
+                  colorTextSecondary: '#5C5A54',
+                  colorInputBackground: '#F7F6F3',
+                  colorInputBorder: '#D4D3CE',
+                  borderRadius: '0.75rem',
                   fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
                 },
                 elements: {
-                  card: 'shadow-none border-0 bg-transparent',
-                  headerTitle: 'text-xl font-extrabold text-slate-900',
-                  headerSubtitle: 'text-xs text-slate-500',
-                  formButtonPrimary: 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-[0_4px_0_#004d46] hover:translate-y-[-1px] active:translate-y-[2px] transition-all text-xs tracking-wider uppercase',
-                  formFieldInput: 'rounded-xl border-slate-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm bg-slate-50',
-                  footerActionLink: 'text-emerald-700 hover:text-emerald-800 font-bold',
-                  socialButtonsBlockButton: 'rounded-xl border-slate-200 hover:bg-slate-50 font-medium text-xs',
-                  dividerLine: 'bg-slate-200',
-                  dividerText: 'text-slate-400 text-xs font-semibold',
+                  card: 'shadow-none border-0 bg-white',
+                  headerTitle: 'text-lg font-bold text-[#1C1B18]',
+                  headerSubtitle: 'text-xs text-[#8A877F]',
+                  formButtonPrimary: 'bg-[#3D6B5A] hover:bg-[#2C5043] text-white font-semibold rounded-lg text-sm shadow-[0_3px_0_#2C5043] active:translate-y-px transition-all',
+                  formFieldInput: 'rounded-lg border-[#D4D3CE] bg-[#F7F6F3] focus:border-[#3D6B5A] text-sm',
+                  footerActionLink: 'text-[#3D6B5A] hover:text-[#2C5043] font-semibold',
+                  socialButtonsBlockButton: 'rounded-lg border-[#D4D3CE] hover:bg-[#EFEFED] text-sm',
+                  dividerLine: 'bg-[#E4E3DF]',
+                  dividerText: 'text-[#8A877F] text-xs',
                 }
               }"
             />
@@ -136,10 +171,9 @@ import { SignUp } from '@clerk/vue'
       </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 text-center text-xs text-slate-400 font-medium">
-      Research Realm • GraphRAG Exploration Architecture • Powered by Microsoft GraphRAG & Vue 3
+    <!-- Minimal footer -->
+    <footer class="relative z-10 w-full max-w-6xl mx-auto px-6 py-5">
+      <p class="text-xs text-center" style="color: #8A877F;">Untangle — Built on Microsoft GraphRAG · Vue 3 · FastAPI</p>
     </footer>
   </div>
 </template>
-

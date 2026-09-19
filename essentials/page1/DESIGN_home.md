@@ -1,66 +1,36 @@
 ---
-name: Research Realm
+name: Untangle
 colors:
-  surface: '#f8f9ff'
-  surface-dim: '#cbdbf5'
-  surface-bright: '#f8f9ff'
-  surface-container-lowest: '#ffffff'
-  surface-container-low: '#eff4ff'
-  surface-container: '#e5eeff'
-  surface-container-high: '#dce9ff'
-  surface-container-highest: '#d3e4fe'
-  on-surface: '#0b1c30'
-  on-surface-variant: '#3d4947'
-  inverse-surface: '#213145'
-  inverse-on-surface: '#eaf1ff'
-  outline: '#6d7a77'
-  outline-variant: '#bcc9c6'
-  surface-tint: '#006a61'
-  primary: '#00685f'
-  on-primary: '#ffffff'
-  primary-container: '#008378'
-  on-primary-container: '#f4fffc'
-  inverse-primary: '#6bd8cb'
-  secondary: '#6b38d4'
-  on-secondary: '#ffffff'
-  secondary-container: '#8455ef'
-  on-secondary-container: '#fffbff'
-  tertiary: '#825100'
-  on-tertiary: '#ffffff'
-  tertiary-container: '#a36700'
-  on-tertiary-container: '#fffbff'
-  error: '#ba1a1a'
-  on-error: '#ffffff'
-  error-container: '#ffdad6'
-  on-error-container: '#93000a'
-  primary-fixed: '#89f5e7'
-  primary-fixed-dim: '#6bd8cb'
-  on-primary-fixed: '#00201d'
-  on-primary-fixed-variant: '#005049'
-  secondary-fixed: '#e9ddff'
-  secondary-fixed-dim: '#d0bcff'
-  on-secondary-fixed: '#23005c'
-  on-secondary-fixed-variant: '#5516be'
-  tertiary-fixed: '#ffddb8'
-  tertiary-fixed-dim: '#ffb95f'
-  on-tertiary-fixed: '#2a1700'
-  on-tertiary-fixed-variant: '#653e00'
-  background: '#f8f9ff'
-  on-background: '#0b1c30'
-  surface-variant: '#d3e4fe'
-  district-person: '#8B5CF6'
-  district-org: '#F59E0B'
-  district-concept: '#10B981'
-  district-location: '#EF4444'
-  district-community: '#06B6D4'
-  parchment-canvas: '#F4F7F4'
-  road-track: '#E2E8F0'
-  zone-greenfield: '#D9EDDF'
-  beam-pulse: '#38BDF8'
-  hud-surface: rgba(255, 255, 255, 0.88)
-  hud-border: rgba(226, 232, 240, 0.85)
-  hud-surface-dark: '#0F172A'
-  citation-gold: '#D97706'
+  surface: '#F7F6F3'
+  surface-low: '#EFEFED'
+  surface-mid: '#E8E7E3'
+  surface-high: '#DEDDD8'
+  canvas-bg: '#EEF0EB'
+  zone-greenfield: '#DFE8DA'
+  road-track: '#D8D6CF'
+  border-default: '#D4D3CE'
+  border-muted: '#E4E3DF'
+  primary: '#3D6B5A'
+  primary-dark: '#2C5043'
+  primary-light: '#E8F0EC'
+  accent-amber: '#B8924A'
+  accent-amber-dark: '#8C6A2C'
+  accent-amber-light: '#F5EFE3'
+  node-person: '#7C6FA0'
+  node-org: '#C49A3C'
+  node-concept: '#4E9A7D'
+  node-location: '#A85A5A'
+  node-community: '#4E8FA8'
+  node-chapter: '#7A8C6A'
+  node-section: '#B8A87A'
+  beam-pulse: '#6BA3BE'
+  source-link: '#B8A87A'
+  text-primary: '#1C1B18'
+  text-secondary: '#5C5A54'
+  text-muted: '#8A877F'
+  hud-surface: 'rgba(247, 246, 243, 0.92)'
+  hud-border: 'rgba(212, 211, 206, 0.80)'
+  hud-surface-dark: '#1C1B18'
 typography:
   display-hero:
     fontFamily: Inter
@@ -139,33 +109,35 @@ spacing:
 
 ## Brand & Style
 
-This design system reimagines complex academic synthesis and retrieval-augmented graph exploration (GraphRAG) through the metaphor of an isometric strategy simulation: "Citation City." Complex entity networks, citation multi-hop paths, and community clusters are transformed from dry topological node-link diagrams into an engaging, explorable landscape of architectural districts, research towers, knowledge plazas, and radiant transit pathways.
+This design system reimagines complex academic synthesis and retrieval-augmented graph exploration (GraphRAG) through the metaphor of an isometric strategy simulation: "the Knowledge Map." Complex entity networks, citation multi-hop paths, and community clusters are transformed from dry topological node-link diagrams into an engaging, explorable landscape of architectural districts, research towers, knowledge plazas, and radiant transit pathways.
 
 ### Brand Personality & Emotional Impact
-- **Playfully Rigorous:** Academic depth disguised in crisp gamified clarity. Users feel like city planners charting discoveries across multi-disciplinary territories rather than analysts wading through dense graph indexes.
-- **Luminous Transparency:** Every multi-hop retrieval trajectory and extracted citation chunk is visually traceable through vibrant, high-luminance light pulses and trajectory beams.
-- **Tactile Precision:** Combining crisp, structural developer-grade typography with soft parchment-hued cartographic bases and floating frosted HUD viewports.
+- **Structured Clarity:** Dense material made legible. Every design decision earns its place.
+- **Quiet Intelligence:** The interface surfaces information when relevant, stays out of the way when not.
+- **Spatial Intuition:** The isometric map works because humans navigate space naturally. This isn't decoration — it's communication.
 
 ### Design Movement
-The design movement is **Gamified Technical Glassmorphism with Isometric Cartography**. It merges the clean lines and modular grids of developer tooling with the delightful spatial geography of isometric simulation games (SimCity, Pokémon GO, and strategic tower defenses). Floating head-up displays (HUDs), rounded status badges, neon-lit trajectory vectors, and parchment-grounded map tiles maintain high functional density without sacrificing joy.
+The design movement is **Lively & Tactile Academic Cartography**. Combining warm off-white neutrals with soft atmospheric glows (`blur-3xl`), tactile card borders (`border-2 border-[#D4D3CE]`), animated micro-interactions (soft icon floating, live pulse status indicators), and interactive preview ribbons. This keeps the dashboard smooth, engaging, and lively without visual clutter.
 
 ## Colors
 
 The color architecture bridges soft environmental cartography with vibrant, semantic district taxonomy. 
 
 ### Environmental Palette
-- **Parchment Base & Greenfield (`#F4F7F4`, `#D9EDDF`):** Creates an inviting, low-fatigue map surface reminiscent of classic world-builder games and tactical cartography.
-- **Road & District Grid (`#E2E8F0`):** Soft, neutral structural lanes that guide visual paths without competing with active node links.
+- **Parchment Base & Greenfield (`#EEF0EB`, `#DFE8DA`):** Creates an inviting, low-fatigue map surface reminiscent of classic world-builder games and tactical cartography.
+- **Road & District Grid (`#D8D6CF`):** Soft, neutral structural lanes that guide visual paths without competing with active node links.
 
 ### Entity & District Coding
-- **Person / Author (`district-person` / `#8B5CF6`):** Royal Lilac, representing agency, scholarly authorship, and researcher profiles.
-- **Org / Institution (`district-org` / `#F59E0B`):** Warm Amber, designating universities, labs, funding agencies, and editorial bodies.
-- **Concept / Topic (`district-concept` / `#10B981`):** Emerald Green, symbolizing thriving core ideas, methodologies, and technical subjects.
-- **Location / Dataset (`district-location` / `#EF4444`):** Coral Red, highlighting empirical corpora, geographical settings, and physical testbeds.
-- **Community Hub / Cluster (`district-community` / `#06B6D4`):** Electric Cyan, indicating high-density modular clusters, thematic neighborhoods, and synthesized answer regions.
+- **Person / Author (`node-person` / `#7C6FA0`):** Dusty lavender, representing agency, scholarly authorship, and researcher profiles.
+- **Org / Institution (`node-org` / `#C49A3C`):** Warm ochre, designating universities, labs, funding agencies, and editorial bodies.
+- **Concept / Topic (`node-concept` / `#4E9A7D`):** Muted jade, symbolizing thriving core ideas, methodologies, and technical subjects.
+- **Location / Dataset (`node-location` / `#A85A5A`):** Dusty rose-red, highlighting empirical corpora, geographical settings, and physical testbeds.
+- **Community Hub / Cluster (`node-community` / `#4E8FA8`):** Dusty slate-blue, indicating high-density modular clusters, thematic neighborhoods, and synthesized answer regions.
+- **Chapter (`node-chapter` / `#7A8C6A`):** Olive sage, structuring major divisions in Study Mode.
+- **Section (`node-section` / `#B8A87A`):** Warm tan, representing detailed sub-topics in Study Mode.
 
 ### Interactive State Highlights
-- **Sub-graph Beam Trajectory (`#38BDF8`):** Radiant cyan-blue gradient with ambient outer glow, illuminating the exact traversal paths executed during a multi-hop query.
+- **Sub-graph Beam Trajectory (`#6BA3BE`):** Soft steel blue gradient with ambient outer glow, illuminating the exact traversal paths executed during a multi-hop query.
 - **Dimmed State:** Unselected entities and irrelevant architectural nodes reduce to 25% opacity with desaturated neutral tones (`#94A3B8`), allowing the relevant answer subgraph to pop into the foreground.
 
 ## Typography
@@ -201,7 +173,7 @@ Visual depth establishes a clear cognitive separation between the underlying car
 
 ### Elevation Layers
 - **Plane 0 (The Realm):** The isometric canvas displaying terrain tiles, streets, park greenfields, and road networks.
-- **Plane 1 (Architectural Structures & Beams):** 2.5D building sprites, community towers, and glowing neon trajectory lines. Active nodes emit a localized circular halo blur (`0 0 24px rgba(56, 189, 248, 0.45)`).
+- **Plane 1 (Architectural Structures & Beams):** 2.5D building sprites, community towers, and glowing neon trajectory lines. Active nodes emit a localized circular halo blur (`0 0 16px rgba(107, 163, 190, 0.35)`).
 - **Plane 2 (Floating Labels & Waypoints):** Crisp entity badges and relationship pills floating directly above roofs and along vector edges with subtle drops (`0 2px 4px rgba(15, 23, 42, 0.12)`).
 - **Plane 3 (HUD Panels & Chat Console):** Frosted glass panels using `backdrop-filter: blur(12px)`, `rgba(255, 255, 255, 0.88)` fill, hairline border `rgba(226, 232, 240, 0.85)`, and soft ambient shadow (`0 8px 30px -4px rgba(15, 23, 42, 0.08)`).
 - **Plane 4 (Drawers & Modal Overlays):** Grounded contextual drawers featuring crisp edge separation with deeper elevation shadows (`-4px 0 24px rgba(15, 23, 42, 0.08)`).
@@ -220,10 +192,13 @@ The design system uses a friendly, ergonomic rounded aesthetic that matches play
 
 ### 1. Isometric Node Buildings & Towers
 - **Visual Structure:** 2.5D miniature architectural models styled per entity type:
-  - *Person:* Cozy Victorian townhouse or studio tower with Lilac trim.
-  - *Organization:* Multi-story modern corporate headquarters with Warm Amber glazing.
-  - *Concept:* Crystalline spire or obsidian obelisk with glowing Emerald energy core.
-  - *Location:* Red-domed capitol or transit pavilion.
+  - *Person:* Cozy Victorian townhouse or studio tower with dusty lavender trim.
+  - *Organization:* Multi-story modern corporate headquarters with warm ochre glazing.
+  - *Concept:* Crystalline spire or obsidian obelisk with muted jade energy core.
+  - *Location:* Red-domed capitol or transit pavilion with dusty rose-red accents.
+  - *Chapter:* Large district polygon, olive sage (`#7A8C6A`) (Study Mode).
+  - *Section:* Medium tower, warm tan (`#B8A87A`) (Study Mode).
+  - *Sub-topic:* Small tower adjacent to parent (Study Mode).
 - **States:**
   - *Default:* Full color, gentle ambient shadow.
   - *Dimmed:* 25% opacity, grayscale wash.
@@ -234,12 +209,12 @@ The design system uses a friendly, ergonomic rounded aesthetic that matches play
 - **Tokens:** `district-community` and `beam-pulse` linear gradient with SVG dash-array marching ants during active traversal queries.
 - **Metadata Badges:** Inline centered pill displaying the edge relation (`WORKS_FOR`, `MENTIONS`) in `label-code-md`.
 
-### 3. Floating Chat HUD Panel
+### 3. Regulus Panel
 - **Container:** Glassmorphic card fixed at the lower left of the screen.
-- **Header:** Title bar with query state indicators, clear button, and collapse trigger.
+- **Header:** Title bar referencing "Regulus" with query state indicators, clear button, and collapse trigger.
 - **Message Bubbles:**
   - *User:* Soft slate background (`#F1F5F9`) with right alignment.
-  - *Assistant:* Clean white card with subtle green/teal indicator avatar, streaming text updates, and interactive inline citation pills (`[Chunk #102]`, `[Davis et al.]`). Clicking an inline citation pans the isometric camera directly to that building.
+  - *Assistant:* Clean white card with subtle green/teal indicator avatar. Streaming text updates are mode-aware: Research Mode shows citation pills; Study Mode shows concept breadcrumbs and outside source suggestion cards. Clicking an inline citation pans the isometric camera directly to that building.
 
 ### 4. Entity Detail Drawer
 - **Location:** Anchored right sidebar.
@@ -253,7 +228,13 @@ The design system uses a friendly, ergonomic rounded aesthetic that matches play
 - **Interaction:** Toggling a district chip highlights all corresponding buildings in the realm while dimming the remainder of the city. Includes numeric badges representing node cardinality.
 
 ### 6. Interactive Telemetry & Stat Counters
-- **Design:** Game-styled stat trackers situated at the top HUD bar. Displays GraphRAG performance metrics:
+- **Design:** Metric trackers situated at the top HUD bar. Displays GraphRAG performance metrics:
   - *Nodes Active:* Total highlighted entities in answer.
   - *Hops Traversed:* Path depth indicator (e.g., `2-Hop Path`).
-  - *Faithfulness Score:* Mini circular progress ring in Emerald green.
+  - *Faithfulness Score:* Mini circular progress ring in muted jade.
+
+### 7. Mode Badge
+- **Design:** Pill-shaped JetBrains Mono badge indicating Research or Study mode.
+- **Variants:** 
+  - *Research Mode:* Muted jade background.
+  - *Study Mode:* Warm ochre background.

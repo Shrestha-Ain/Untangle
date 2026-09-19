@@ -254,35 +254,11 @@ def run_ingestion_pipeline(document_id: str):
 
 The `chord` is the key Celery primitive here: it fans out extraction across all chunks **in parallel**, then waits for every single one to finish before running deduplication — because dedup needs the full picture of every entity mentioned in the document, not just one chunk's worth.
 
-## A.8 Player & Gamification Endpoints (`api/v1/player.py`)
+## A.8 Note on Gamification
 
-```python
-from fastapi import APIRouter, Depends
-from app.api.deps import get_db, get_current_user
-from app.schemas.player import PlayerProfileOut, PlayerProfileUpdate
-from app.schemas.quest import QuestOut
-from app.services import player_service
+Earlier versions of this design included gamification elements (XP, levels, sparks, quests). These have been removed from the Untangle v1 scope. The `player_profiles` and `quests` tables are not implemented in v1. The auth layer (Clerk) provides all the user identity needed without additional gamification state.
 
-router = APIRouter(prefix='/player', tags=['player'])
-
-@router.get('/profile', response_model=PlayerProfileOut)
-def get_profile(db=Depends(get_db), user=Depends(get_current_user)):
-    return player_service.get_or_create_profile(db, user.id)
-
-@router.put('/profile', response_model=PlayerProfileOut)
-def update_profile(
-    update: PlayerProfileUpdate,
-    db=Depends(get_db),
-    user=Depends(get_current_user),
-):
-    return player_service.update_profile(db, user.id, update)
-
-@router.get('/quests', response_model=list[QuestOut])
-def list_quests(db=Depends(get_db), user=Depends(get_current_user)):
-    return player_service.list_quests(db, user.id)
-```
-
-### Realm-Aware Document Response (`schemas/document.py` extension)
+### Document Response (`schemas/document.py` extension)
 
 ```python
 from pydantic import BaseModel
@@ -291,14 +267,11 @@ from datetime import datetime
 class DocumentOut(BaseModel):
     id: str
     filename: str
+    source_mode: str  # 'research' | 'study'
+    display_title: str | None  # user-editable friendly name
     status: str
     uploaded_at: datetime
     processed_at: datetime | None
-    # Gamification: realm identity
-    realm_name: str | None         # e.g., 'Attention Valley', auto-generated from paper title
-    realm_emoji: str               # e.g., '🌿', '🏰', '🏙️'
-    realm_color: str               # tailwind color key: 'emerald', 'sky', 'purple', 'amber'
-    realm_level: int               # computed from entity/community density
     # Aggregate stats (fetched from Neo4j)
     district_count: int            # community count
     tower_count: int               # total entity count
@@ -308,38 +281,169 @@ class DocumentOut(BaseModel):
         from_attributes = True
 ```
 
-### XP Award Logic (`services/player_service.py` excerpt)
+## A.9 Study Mode Ingestion Pipeline (`tasks/study_ingestion.py`)
+
+When `document.source_mode == 'study'`, the Celery ingestion task follows a different extraction strategy:
+
+### Step 1 — Structural Extraction
+
+Instead of NER-based entity extraction, the LLM is prompted to extract the book's hierarchical structure:
 
 ```python
-XP_REWARDS = {
-    'document_ingested': 50,
-    'question_asked': 10,
-    'community_explored': 5,
-    'quest_completed': 100,
-}
+STUDY_STRUCTURE_PROMPT = """
+You are analyzing a textbook or study book. Extract the full structural hierarchy.
 
-LEVEL_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 3500, 5500, 8000, 12000]
+For each element, return:
+- type: 'chapter' | 'section' | 'topic' | 'subtopic'
+- title: the heading text as written
+- parent_ref: the immediate parent's title (null for chapters)
+- summary: 1-2 sentence summary of what this element covers
+- key_concepts: list of 3-8 key terms or concepts introduced here
 
-def award_xp(db, user_id: str, action: str):
-    profile = get_or_create_profile(db, user_id)
-    xp_gain = XP_REWARDS.get(action, 0)
-    profile.xp += xp_gain
-
-    # Check level-up
-    for i, threshold in enumerate(LEVEL_THRESHOLDS):
-        if profile.xp >= threshold:
-            profile.level = i + 1
-    profile.xp_to_next_level = (
-        LEVEL_THRESHOLDS[profile.level] - profile.xp
-        if profile.level < len(LEVEL_THRESHOLDS)
-        else 0
-    )
-
-    db.commit()
-    return {'xp_earned': xp_gain, 'leveled_up': profile.level > (profile.level - 1)}
+Return valid JSON.
+"""
 ```
 
-This keeps gamification simple and deterministic — no randomness, no microtransactions, just straightforward 'do academic things → earn XP → level up.' The sparks/energy counters are primarily cosmetic for v1 but provide hooks for future rate-limiting (energy as a daily query budget) or reward mechanics (sparks earned per high-faithfulness answer).
+This is run in sliding windows of ~8,000 tokens (overlapping by table-of-contents context) to handle long books.
+
+### Step 2 — Concept Relationship Extraction
+
+For each extracted topic/subtopic, a second LLM pass identifies:
+- `CONCEPTUALLY_LINKS` relationships ("Backpropagation CONCEPTUALLY_LINKS Gradient Descent")
+- `NEEDS_CONTEXT` flags where a concept references something outside this book's scope
+
+```python
+CONCEPT_LINK_PROMPT = """
+Given these topics from chapter "{chapter_title}":
+{topic_list}
+
+Identify:
+1. Relationships between these topics (topic A -> relationship_label -> topic B)
+2. Topics that assume outside knowledge (mark with needs_context=True and a brief reason)
+
+Return as JSON.
+"""
+```
+
+### Step 3 — Auto-Suggestion of External Sources
+
+For topics flagged with `needs_context=True`:
+1. Embed the topic's description + reason using the same embedding model.
+2. Qdrant similarity search across all other documents in the user's library.
+3. Store results as pending suggestions in `document_links` table with `link_mode='auto'`, `accepted=False`.
+4. Push suggestions to the frontend via WebSocket as `source_suggestion` events.
+
+```python
+# WebSocket event payload for source suggestions
+class SourceSuggestionEvent(BaseModel):
+    type: Literal['source_suggestion']
+    topic_id: str
+    topic_name: str
+    reason: str  # why this topic needs outside context
+    suggestions: list[dict]  # [{document_id, title, relevance_score}]
+```
+
+### Town Canvas Mapping (Study Mode)
+
+The `GET /graph/{document_id}/study-map` endpoint returns data in the same building/road format as the Research Mode `/town` endpoint, allowing `TownCanvas.vue` to work without modification:
+
+```python
+# Study Mode building types (match the Research Mode building config keys)
+STUDY_BUILDING_TYPES = {
+    'chapter':  {'type': 'DISTRICT', 'size': 'xl', 'color': '#7A8C6A'},
+    'section':  {'type': 'ORG',      'size': 'lg', 'color': '#B8A87A'},
+    'topic':    {'type': 'CONCEPT',  'size': 'md', 'color': '#4E9A7D'},
+    'subtopic': {'type': 'PERSON',   'size': 'sm', 'color': '#7C6FA0'},
+}
+# Roads: CONCEPTUALLY_LINKS → normal road, NEEDS_CONTEXT → dashed cross-source road
+```
+
+## A.10 Learning Path & Topic Reader Endpoints (`api/v1/graph.py`)
+
+### 1. Learning Path Generation (`GET /graph/{document_id}/learning-path`)
+
+To enable guided, pedagogical study through the map, the backend runs a topological sort over concept dependencies:
+
+```python
+@router.get('/{document_id}/learning-path', response_model=list[str])
+def get_learning_path(document_id: str, db=Depends(get_neo4j_session)):
+    """
+    Computes a recommended sequence of concept exploration.
+    Topological sort on PREREQUISITE_FOR relationships, falling back to 
+    depth hierarchy and mention frequency.
+    """
+    query = """
+    MATCH (d:Document {id: $doc_id})
+    OPTIONAL MATCH (d)-[:HAS_CHUNK]->(:Chunk)-[:MENTIONS]->(e:Entity)
+    OPTIONAL MATCH (d)-[:HAS_CHAPTER]->(:Chapter)-[:HAS_SECTION*]->(t:Topic)
+    WITH coalesce(e, t) AS node
+    WHERE node IS NOT NULL
+    RETURN node.id AS id, coalesce(node.path_order, node.mention_count, 1) AS score
+    ORDER BY score ASC
+    """
+    results = db.run(query, doc_id=document_id)
+    return [record["id"] for record in results]
+```
+
+### 2. Topic Dossier Retrieval (`GET /graph/{document_id}/nodes/{id}/dossier`)
+
+Enables the "Read everything related to that topic" deep reader view:
+
+```python
+class ChunkExcerpt(BaseModel):
+    chunk_id: str
+    section_ref: str | None
+    text: str
+
+class TopicDossierOut(BaseModel):
+    node_id: str
+    name: str
+    type: str
+    path_step: int | None
+    summary: str
+    key_formulas_or_code: list[str]
+    raw_chunks: list[ChunkExcerpt]
+    prerequisites: list[str]
+    next_concepts: list[str]
+    exam_gist: dict | None = None  # { key_takeaways: list[str], formula_to_memorize: str | None, exam_trap: str }
+
+@router.get('/{document_id}/nodes/{node_id}/dossier', response_model=TopicDossierOut)
+def get_topic_dossier(document_id: str, node_id: str, db=Depends(get_neo4j_session)):
+    """
+    Gathers all source text chunks that mention or define this concept,
+    along with LLM-extracted formulas, structural prerequisites, and a 2-min exam takeaway.
+    """
+    # Cypher query pulls node attributes, connected chunks, and adjacent prerequisite links
+    ...
+
+### 3. Exam Gist & High-Yield Revision Sheet (`GET /graph/{document_id}/exam-gist`)
+
+Provides a consolidated rapid-review sheet ranking the most critical high-yield concepts across the entire document for time-constrained exam study:
+
+```python
+class ExamGistTopic(BaseModel):
+    node_id: str
+    name: str
+    type: str
+    high_yield_rank: int
+    quick_summary: str
+    key_formulas: list[str]
+    common_exam_trap: str
+
+class ExamGistOut(BaseModel):
+    document_id: str
+    document_title: str
+    total_topics: int
+    high_yield_topics: list[ExamGistTopic]
+
+@router.get('/{document_id}/exam-gist', response_model=ExamGistOut)
+def get_exam_gist(document_id: str, db=Depends(get_neo4j_session)):
+    """
+    Returns the compiled high-yield revision sheet ranking the most critical concepts,
+    their core formulas to memorize, and common exam traps.
+    """
+    ...
+```
 
 ---
 
@@ -634,8 +738,8 @@ The base chat WebSocket handles `token` and `done` events. For the gamified UI, 
 
 ```typescript
 // Extended event types for the town-builder UI
-interface ConstructionEvent {
-  type: 'construction_step'
+interface IngestionEvent {
+  type: 'ingestion_step'
   step: 'parse' | 'extract' | 'dedupe' | 'embed' | 'cluster' | 'summarize'
   progress: number      // 0-100
   detail: string        // e.g., 'Erecting 64 Towers...'
@@ -643,27 +747,18 @@ interface ConstructionEvent {
   roadsLaid?: number    // running count of relationships extracted so far
 }
 
-interface QuestEvent {
-  type: 'quest_progress'
-  questId: string
-  currentStep: number
-  totalSteps: number
-  title: string
-}
-
-interface XpEvent {
-  type: 'xp_earned'
-  amount: number
-  reason: string        // e.g., 'Document ingested', 'New district discovered'
-  newTotal: number
-  leveledUp: boolean
+interface SourceSuggestionEvent {
+  type: 'source_suggestion'
+  topic_id: string
+  topic_name: string
+  reason: string        // why this topic needs outside context
+  suggestions: Array<{ document_id: string, title: string, relevance_score: number }>
 }
 ```
 
 These map directly to UI updates:
-- `construction_step` → drives the 3-step `ConstructionPipeline.vue` progress cards and the master progress bar
-- `quest_progress` → updates the 'Active Quest' banner in `TopHudHeader.vue`
-- `xp_earned` → triggers a floating '+XP' toast animation and updates the player XP bar
+- `ingestion_step` → drives the 3-step `ConstructionPipeline.vue` progress cards and the master progress bar
+- `source_suggestion` → pushes auto-discovered contextual links for Study Mode topics
 
 ## B.4 Isometric Layout Composables
 

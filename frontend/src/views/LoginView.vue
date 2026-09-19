@@ -3,106 +3,128 @@ import { SignIn } from '@clerk/vue'
 </script>
 
 <template>
-  <div class="relative min-h-screen w-full bg-[#F4F7F4] text-slate-800 flex flex-col justify-between overflow-x-hidden selection:bg-emerald-200 selection:text-emerald-900">
-    <!-- Ambient background dots & glow orbs -->
+  <div
+    class="relative min-h-screen w-full flex flex-col"
+    style="background-color: #F7F6F3;"
+  >
+    <!-- Subtle dot grid — barely visible texture -->
     <div
-      class="absolute inset-0 pointer-events-none opacity-60"
-      style="background-image: radial-gradient(rgba(0, 104, 95, 0.12) 1.2px, transparent 1.2px); background-size: 28px 28px;"
+      class="absolute inset-0 pointer-events-none"
+      style="background-image: radial-gradient(rgba(28,27,24,0.07) 1px, transparent 1px); background-size: 24px 24px;"
     ></div>
-    <div class="absolute -top-32 -left-32 w-96 h-96 bg-emerald-300/30 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-amber-300/25 rounded-full blur-3xl pointer-events-none"></div>
 
-    <!-- Top Branding Navbar -->
-    <header class="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-      <router-link to="/" class="flex items-center gap-3 group">
-        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-game-btn transition-transform group-hover:scale-105">
-          <span class="material-symbols-outlined text-2xl">account_balance</span>
+    <!-- Minimal top nav -->
+    <header class="relative z-10 w-full max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <!-- Logomark: simple knot/node icon -->
+        <div
+          class="w-8 h-8 rounded-lg flex items-center justify-center"
+          style="background-color: #3D6B5A;"
+        >
+          <span class="material-symbols-outlined text-white" style="font-size: 18px;">hub</span>
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="font-extrabold text-lg tracking-tight text-slate-900">Research Realm</span>
-            <span class="hidden sm:inline-flex px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded-full border border-emerald-200">
-              GraphRAG Explorer
-            </span>
-          </div>
-          <p class="text-xs text-slate-500 font-medium">Citation Archipelago • Scholar Portal</p>
-        </div>
-      </router-link>
+        <span class="font-bold text-base tracking-tight" style="color: #1C1B18;">Untangle</span>
+      </div>
 
-      <div class="flex items-center gap-2">
-        <span class="text-xs text-slate-500 hidden sm:inline">New to the realm?</span>
+      <div class="flex items-center gap-3">
+        <span class="text-sm" style="color: #8A877F;">New to Untangle?</span>
         <router-link
           to="/register"
-          class="px-3.5 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors shadow-sm"
+          class="px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors"
+          style="color: #1C1B18; border-color: #D4D3CE; background: white;"
         >
-          Enlist Account ✨
+          Create account
         </router-link>
       </div>
     </header>
 
-    <!-- Main Content Area -->
-    <main class="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 py-8 flex items-center justify-center">
-      <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-        
-        <!-- Left Column: The Lore & Game Experience Preview (Hidden on small mobile if tight) -->
-        <div class="lg:col-span-6 space-y-6">
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-sm">
-            <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-            <span>ACADEMY GATES OPEN</span>
-          </div>
+    <!-- Main two-column layout -->
+    <main class="relative z-10 flex-1 w-full max-w-6xl mx-auto px-6 py-10 flex items-center">
+      <div class="w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
-          <div class="space-y-3">
-            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
-              Welcome back, <br />
-              <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600">
-                Fellow Scholar.
-              </span>
+        <!-- Left: Brand & value proposition -->
+        <div class="space-y-8">
+          <div class="space-y-4">
+            <h1 class="text-4xl font-bold tracking-tight leading-tight" style="color: #1C1B18;">
+              Turn dense material<br />into navigable knowledge.
             </h1>
-            <p class="text-slate-600 text-base leading-relaxed max-w-lg">
-              Sign in to resume constructing your knowledge towns, navigate citation energy highways, and consult with Professor Archimedes.
+            <p class="text-base leading-relaxed" style="color: #5C5A54; max-width: 400px;">
+              Untangle maps research papers and textbooks into an interactive knowledge graph you can explore, query, and extend.
             </p>
           </div>
 
-          <!-- Feature Cards Grid -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <div class="bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-white/80 shadow-sm space-y-1 hover:border-emerald-200 transition-colors">
-              <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center mb-2">
-                <span class="material-symbols-outlined text-lg">castle</span>
+          <!-- Feature list — clean, no game language -->
+          <div class="space-y-3">
+            <div class="flex items-start gap-3">
+              <div
+                class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                style="background-color: #E8F0EC;"
+              >
+                <span class="material-symbols-outlined" style="font-size: 16px; color: #3D6B5A;">account_tree</span>
               </div>
-              <h3 class="font-bold text-sm text-slate-900">Isometric Towns</h3>
-              <p class="text-xs text-slate-500 leading-relaxed">Turn dense papers into 2.5D explorable buildings and districts.</p>
+              <div>
+                <p class="text-sm font-semibold" style="color: #1C1B18;">Research Mode</p>
+                <p class="text-sm" style="color: #5C5A54;">Upload a paper — get a live, explorable entity-relationship map with multi-hop reasoning.</p>
+              </div>
             </div>
 
-            <div class="bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-white/80 shadow-sm space-y-1 hover:border-cyan-200 transition-colors">
-              <div class="w-8 h-8 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center mb-2">
-                <span class="material-symbols-outlined text-lg">route</span>
+            <div class="flex items-start gap-3">
+              <div
+                class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                style="background-color: #F5EFE3;"
+              >
+                <span class="material-symbols-outlined" style="font-size: 16px; color: #B8924A;">menu_book</span>
               </div>
-              <h3 class="font-bold text-sm text-slate-900">Energy Roads</h3>
-              <p class="text-xs text-slate-500 leading-relaxed">Trace multi-hop reasoning paths via glowing neon road pulses.</p>
+              <div>
+                <p class="text-sm font-semibold" style="color: #1C1B18;">Study Mode</p>
+                <p class="text-sm" style="color: #5C5A54;">Upload a textbook — topics, subtopics, and chapter structures laid out spatially for exam prep.</p>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3">
+              <div
+                class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                style="background-color: #EFEFED;"
+              >
+                <span class="material-symbols-outlined" style="font-size: 16px; color: #5C5A54;">link</span>
+              </div>
+              <div>
+                <p class="text-sm font-semibold" style="color: #1C1B18;">Cross-source linking</p>
+                <p class="text-sm" style="color: #5C5A54;">Regulus suggests related sources when a concept needs outside context. Link them with one click.</p>
+              </div>
             </div>
           </div>
 
-          <!-- Bottom Scholar Badge Preview -->
-          <div class="bg-slate-900 text-slate-200 p-4 rounded-2xl shadow-game flex items-center justify-between gap-4 border border-slate-800">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 font-extrabold flex items-center justify-center text-sm shadow-md">
-                LV.4
-              </div>
-              <div>
-                <p class="text-xs font-mono text-emerald-400 font-bold uppercase tracking-wider">Active Realm</p>
-                <p class="text-sm font-bold text-white">Attention Valley (Vaswani et al.)</p>
-              </div>
+          <!-- Small map preview strip — shows the muted color palette in context -->
+          <div
+            class="rounded-xl p-3 border"
+            style="background-color: #EEF0EB; border-color: #D4D3CE;"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-mono font-semibold uppercase tracking-wider" style="color: #8A877F;">Sample map · Research Mode</span>
             </div>
-            <div class="text-right hidden sm:block">
-              <p class="text-[10px] uppercase font-mono text-slate-400 font-semibold">Towers / Roads</p>
-              <p class="text-xs font-mono font-bold text-slate-200">64 / 182</p>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono" style="background: #EBE5F5; color: #7C6FA0; border: 1px solid #D5CCE8;">
+                <span class="w-1.5 h-1.5 rounded-full inline-block" style="background: #7C6FA0;"></span>Vaswani et al.
+              </span>
+              <span class="text-xs" style="color: #B8A87A;">──</span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono" style="background: #E5F3EE; color: #4E9A7D; border: 1px solid #C4DDD4;">
+                <span class="w-1.5 h-1.5 rounded-full inline-block" style="background: #4E9A7D;"></span>Attention Mechanism
+              </span>
+              <span class="text-xs" style="color: #B8A87A;">──</span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono" style="background: #EEE8DC; color: #C49A3C; border: 1px solid #DDD0B0;">
+                <span class="w-1.5 h-1.5 rounded-full inline-block" style="background: #C49A3C;"></span>Google Brain
+              </span>
             </div>
           </div>
         </div>
 
-        <!-- Right Column: Clerk Sign In Component -->
-        <div class="lg:col-span-6 flex justify-center lg:justify-end">
-          <div class="w-full max-w-md bg-white/95 backdrop-blur-xl p-2 sm:p-4 rounded-3xl border border-white shadow-hud-lg">
+        <!-- Right: Clerk SignIn -->
+        <div class="flex justify-center lg:justify-end">
+          <div
+            class="w-full rounded-2xl border overflow-hidden"
+            style="max-width: 420px; background: white; border-color: #E4E3DF; box-shadow: 0 4px 20px rgba(28,27,24,0.08);"
+          >
             <SignIn
               routing="path"
               path="/login"
@@ -111,25 +133,26 @@ import { SignIn } from '@clerk/vue'
               after-sign-up-url="/"
               :appearance="{
                 variables: {
-                  colorPrimary: '#00685f',
+                  colorPrimary: '#3D6B5A',
                   colorBackground: '#ffffff',
-                  colorText: '#0f172a',
-                  colorTextSecondary: '#64748b',
-                  colorInputBackground: '#f8fafc',
-                  colorInputBorder: '#e2e8f0',
-                  borderRadius: '0.875rem',
+                  colorText: '#1C1B18',
+                  colorTextSecondary: '#5C5A54',
+                  colorInputBackground: '#F7F6F3',
+                  colorInputBorder: '#D4D3CE',
+                  borderRadius: '0.75rem',
                   fontFamily: 'Inter, sans-serif',
+                  fontSize: '14px',
                 },
                 elements: {
-                  card: 'shadow-none border-0 bg-transparent',
-                  headerTitle: 'text-xl font-extrabold text-slate-900',
-                  headerSubtitle: 'text-xs text-slate-500',
-                  formButtonPrimary: 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-[0_4px_0_#004d46] hover:translate-y-[-1px] active:translate-y-[2px] transition-all text-xs tracking-wider uppercase',
-                  formFieldInput: 'rounded-xl border-slate-200 focus:border-emerald-500 focus:ring-emerald-500 text-sm bg-slate-50',
-                  footerActionLink: 'text-emerald-700 hover:text-emerald-800 font-bold',
-                  socialButtonsBlockButton: 'rounded-xl border-slate-200 hover:bg-slate-50 font-medium text-xs',
-                  dividerLine: 'bg-slate-200',
-                  dividerText: 'text-slate-400 text-xs font-semibold',
+                  card: 'shadow-none border-0 bg-white',
+                  headerTitle: 'text-lg font-bold text-[#1C1B18]',
+                  headerSubtitle: 'text-xs text-[#8A877F]',
+                  formButtonPrimary: 'bg-[#3D6B5A] hover:bg-[#2C5043] text-white font-semibold rounded-lg text-sm shadow-[0_3px_0_#2C5043] active:translate-y-px transition-all',
+                  formFieldInput: 'rounded-lg border-[#D4D3CE] bg-[#F7F6F3] focus:border-[#3D6B5A] text-sm',
+                  footerActionLink: 'text-[#3D6B5A] hover:text-[#2C5043] font-semibold',
+                  socialButtonsBlockButton: 'rounded-lg border-[#D4D3CE] hover:bg-[#EFEFED] text-sm',
+                  dividerLine: 'bg-[#E4E3DF]',
+                  dividerText: 'text-[#8A877F] text-xs',
                 }
               }"
             />
@@ -139,9 +162,9 @@ import { SignIn } from '@clerk/vue'
       </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 text-center text-xs text-slate-400 font-medium">
-      Research Realm • GraphRAG Exploration Architecture • Powered by Microsoft GraphRAG & Vue 3
+    <!-- Minimal footer -->
+    <footer class="relative z-10 w-full max-w-6xl mx-auto px-6 py-5">
+      <p class="text-xs text-center" style="color: #8A877F;">Untangle — Built on Microsoft GraphRAG · Vue 3 · FastAPI</p>
     </footer>
   </div>
 </template>

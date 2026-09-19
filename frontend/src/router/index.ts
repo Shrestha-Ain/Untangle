@@ -53,6 +53,11 @@ const router = createRouter({
  * Navigation guard — ensures smooth routing between public and protected views.
  */
 router.beforeEach(async (to) => {
+  // Allow bypassing auth in development if backend or Clerk keys aren't ready
+  if (import.meta.env.VITE_BYPASS_AUTH === 'true') {
+    return
+  }
+
   const { isSignedIn, isLoaded } = useAuth()
 
   // If Clerk is still bootstrapping, wait for it to finish so we have reliable auth state
