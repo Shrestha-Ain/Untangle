@@ -1,23 +1,33 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuth } from '@clerk/vue'
+
 /**
- * Application router — three pages:
- *  /login        → LoginView    (public)
+ * Application router:
+ *  /login        → LoginView    (public, Clerk SignIn)
+ *  /register     → RegisterView (public, Clerk SignUp)
  *  /             → HomeView     (protected — the "Research Realm" dashboard)
  *  /realm/:id    → TownExplorerView (protected — the isometric town explorer)
  *
- * createWebHistory() uses the browser History API for clean URLs (no hash).
- * The FastAPI backend doesn't need to handle these routes — Vite's dev server
- * and Nginx/Vercel in production serve index.html for all unknown paths.
+ * Notice the `:catchAll(.*)*` parameter on /login and /register.
+ * This allows Clerk's multi-step flows (email verification codes, MFA, OAuth callbacks)
+ * to navigate sub-paths without Vue Router throwing a 404.
  */
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/login',
+      path: '/login/:catchAll(.*)*',
+      alias: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
-      // No auth required — this is the entry point
+      meta: { publicOnly: true },
+    },
+    {
+      path: '/register/:catchAll(.*)*',
+      alias: '/register',
+      name: 'register',
+      component: () => import('@/views/RegisterView.vue'),
+      meta: { publicOnly: true },
     },
     {
       path: '/',
@@ -31,26 +41,41 @@ const router = createRouter({
       component: () => import('@/views/TownExplorerView.vue'),
       meta: { requiresAuth: true },
     },
+    // Fallback redirect
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/',
+    },
   ],
 })
 
 /**
- * Navigation guard — runs before every route change.
- * If the route requires auth and there's no token in localStorage,
- * redirect to /login. Simple and sufficient for v1.
+ * Navigation guard — ensures smooth routing between public and protected views.
  */
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const { isSignedIn, isLoaded } = useAuth()
-  // Wait until Clerk has finished loading session state
-  if (!isLoaded.value) return
+
+  // If Clerk is still bootstrapping, wait for it to finish so we have reliable auth state
+  if (!isLoaded.value) {
+    await new Promise<void>((resolve) => {
+      const interval = setInterval(() => {
+        if (isLoaded.value) {
+          clearInterval(interval)
+          resolve()
+        }
+      }, 20)
+    })
+  }
+
+  // If page requires auth and user is NOT signed in -> send to /login
   if (to.meta.requiresAuth && !isSignedIn.value) {
     return { name: 'login' }
   }
-  // Redirect already-signed-in users away from the login page
-  if (to.name === 'login' && isSignedIn.value) {
+
+  // If page is for unauthenticated guests only (login/register) and user IS signed in -> send to home
+  if (to.meta.publicOnly && isSignedIn.value) {
     return { name: 'home' }
   }
 })
 
 export default router
-

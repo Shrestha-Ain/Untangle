@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SignIn } from '@clerk/vue'
+import { SignUp } from '@clerk/vue'
 </script>
 
 <template>
@@ -9,8 +9,8 @@ import { SignIn } from '@clerk/vue'
       class="absolute inset-0 pointer-events-none opacity-60"
       style="background-image: radial-gradient(rgba(0, 104, 95, 0.12) 1.2px, transparent 1.2px); background-size: 28px 28px;"
     ></div>
-    <div class="absolute -top-32 -left-32 w-96 h-96 bg-emerald-300/30 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-amber-300/25 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-purple-300/25 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-emerald-300/30 rounded-full blur-3xl pointer-events-none"></div>
 
     <!-- Top Branding Navbar -->
     <header class="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
@@ -22,20 +22,20 @@ import { SignIn } from '@clerk/vue'
           <div class="flex items-center gap-2">
             <span class="font-extrabold text-lg tracking-tight text-slate-900">Research Realm</span>
             <span class="hidden sm:inline-flex px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded-full border border-emerald-200">
-              GraphRAG Explorer
+              New Scholar
             </span>
           </div>
-          <p class="text-xs text-slate-500 font-medium">Citation Archipelago • Scholar Portal</p>
+          <p class="text-xs text-slate-500 font-medium">Citation Archipelago • Academy Enrollment</p>
         </div>
       </router-link>
 
       <div class="flex items-center gap-2">
-        <span class="text-xs text-slate-500 hidden sm:inline">New to the realm?</span>
+        <span class="text-xs text-slate-500 hidden sm:inline">Already enrolled?</span>
         <router-link
-          to="/register"
-          class="px-3.5 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors shadow-sm"
+          to="/login"
+          class="px-3.5 py-1.5 text-xs font-bold text-slate-800 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors shadow-sm"
         >
-          Enlist Account ✨
+          Sign In 📜
         </router-link>
       </div>
     </header>
@@ -44,71 +44,68 @@ import { SignIn } from '@clerk/vue'
     <main class="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 py-8 flex items-center justify-center">
       <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
         
-        <!-- Left Column: The Lore & Game Experience Preview (Hidden on small mobile if tight) -->
+        <!-- Left Column: Scholarship Perks & Academy Lore -->
         <div class="lg:col-span-6 space-y-6">
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-sm">
-            <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-            <span>ACADEMY GATES OPEN</span>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-sm">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>COMMENCE YOUR SCHOLARSHIP</span>
           </div>
 
           <div class="space-y-3">
             <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
-              Welcome back, <br />
+              Begin your journey as a <br />
               <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600">
-                Fellow Scholar.
+                Master Cartographer.
               </span>
             </h1>
             <p class="text-slate-600 text-base leading-relaxed max-w-lg">
-              Sign in to resume constructing your knowledge towns, navigate citation energy highways, and consult with Professor Archimedes.
+              Enlist in the Research Realm to turn any research paper into an interactive, multi-agent knowledge town with automated graph indexing.
             </p>
           </div>
 
-          <!-- Feature Cards Grid -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <div class="bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-white/80 shadow-sm space-y-1 hover:border-emerald-200 transition-colors">
-              <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center mb-2">
-                <span class="material-symbols-outlined text-lg">castle</span>
-              </div>
-              <h3 class="font-bold text-sm text-slate-900">Isometric Towns</h3>
-              <p class="text-xs text-slate-500 leading-relaxed">Turn dense papers into 2.5D explorable buildings and districts.</p>
-            </div>
-
-            <div class="bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-white/80 shadow-sm space-y-1 hover:border-cyan-200 transition-colors">
-              <div class="w-8 h-8 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center mb-2">
-                <span class="material-symbols-outlined text-lg">route</span>
-              </div>
-              <h3 class="font-bold text-sm text-slate-900">Energy Roads</h3>
-              <p class="text-xs text-slate-500 leading-relaxed">Trace multi-hop reasoning paths via glowing neon road pulses.</p>
-            </div>
-          </div>
-
-          <!-- Bottom Scholar Badge Preview -->
-          <div class="bg-slate-900 text-slate-200 p-4 rounded-2xl shadow-game flex items-center justify-between gap-4 border border-slate-800">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 font-extrabold flex items-center justify-center text-sm shadow-md">
-                LV.4
+          <!-- Scholar Perks Grid -->
+          <div class="space-y-3 pt-1">
+            <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/80 backdrop-blur-md border border-white/80 shadow-sm">
+              <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-xl">auto_awesome</span>
               </div>
               <div>
-                <p class="text-xs font-mono text-emerald-400 font-bold uppercase tracking-wider">Active Realm</p>
-                <p class="text-sm font-bold text-white">Attention Valley (Vaswani et al.)</p>
+                <h4 class="text-sm font-bold text-slate-900">Level 1 Apprentice Scholar Card</h4>
+                <p class="text-xs text-slate-500 mt-0.5">Receive 100 Energy sparks and start unlocking research badges with each paper you ingest.</p>
               </div>
             </div>
-            <div class="text-right hidden sm:block">
-              <p class="text-[10px] uppercase font-mono text-slate-400 font-semibold">Towers / Roads</p>
-              <p class="text-xs font-mono font-bold text-slate-200">64 / 182</p>
+
+            <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/80 backdrop-blur-md border border-white/80 shadow-sm">
+              <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-xl">account_tree</span>
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-slate-900">Leiden Community Clustering</h4>
+                <p class="text-xs text-slate-500 mt-0.5">Automatic hierarchical clustering that partitions concepts into named thematic districts.</p>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/80 backdrop-blur-md border border-white/80 shadow-sm">
+              <div class="w-9 h-9 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-xl">psychology</span>
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-slate-900">Professor Archimedes AI Companion</h4>
+                <p class="text-xs text-slate-500 mt-0.5">Stream citations with formula clues, grounded in verifiable knowledge graph subgraphs.</p>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Right Column: Clerk Sign In Component -->
+        <!-- Right Column: Clerk Sign Up Component -->
         <div class="lg:col-span-6 flex justify-center lg:justify-end">
           <div class="w-full max-w-md bg-white/95 backdrop-blur-xl p-2 sm:p-4 rounded-3xl border border-white shadow-hud-lg">
-            <SignIn
+            <SignUp
               routing="path"
-              path="/login"
-              sign-up-url="/register"
-              after-sign-in-url="/"
+              path="/register"
+              sign-in-url="/login"
               after-sign-up-url="/"
+              after-sign-in-url="/"
               :appearance="{
                 variables: {
                   colorPrimary: '#00685f',
@@ -145,3 +142,4 @@ import { SignIn } from '@clerk/vue'
     </footer>
   </div>
 </template>
+

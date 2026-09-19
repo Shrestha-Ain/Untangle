@@ -6,7 +6,6 @@
     "allowArbitraryExtensions": true,
 
     /* Path alias — mirrors vite.config.ts resolve.alias */
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
