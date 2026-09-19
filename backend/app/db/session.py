@@ -17,11 +17,21 @@ class Base(DeclarativeBase):
     """Declarative base for all ORM models."""
 
 
-engine = create_engine(
-    get_settings().postgres_url,
-    pool_pre_ping=True,  # verify connections are alive before using them
-    echo=get_settings().environment == "development",
-)
+settings = get_settings()
+db_url = settings.postgres_url
+
+if db_url.startswith("sqlite"):
+    engine = create_engine(
+        db_url,
+        connect_args={"check_same_thread": False},
+        echo=settings.environment == "development",
+    )
+else:
+    engine = create_engine(
+        db_url,
+        pool_pre_ping=True,  # verify connections are alive before using them
+        echo=settings.environment == "development",
+    )
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 

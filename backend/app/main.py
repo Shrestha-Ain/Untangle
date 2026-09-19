@@ -89,6 +89,7 @@ def create_app() -> FastAPI:
 
     # ── Health check ──────────────────────────────────────────────────
     @app.get("/api/health", tags=["Health"])
+    @app.get("/api/v1/health", tags=["Health"])
     def health_check():
         """Simple health check — returns 200 if the server is running."""
         return {"status": "ok"}

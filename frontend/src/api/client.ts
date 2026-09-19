@@ -11,31 +11,28 @@ import axios from 'axios'
  * stored in localStorage, so every store/component that uses
  * `api.get(...)` is automatically authenticated.
  */
+const rawBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const apiBaseUrl = rawBaseUrl.endsWith('/api/v1') ? rawBaseUrl : `${rawBaseUrl.replace(/\/+$/, '')}/api/v1`
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
+  baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
-// // Request interceptor — inject Bearer token on every outgoing request
-// api.interceptors.request.use((config) => {
-//   const token = localStorage.getItem('access_token')
-//   if (token) {
-//     config.headers.Authorization = `Bearer ${token}`
-//   }
-//   return config
-// })
-
 // Attach Clerk session token before every request.
-// We import lazily inside the interceptor to avoid circular init issues.
 api.interceptors.request.use(async (config) => {
-  // // @clerk/vue exposes getToken() on the window via the loaded plugin
-  // const { getToken } = (window as any).__clerk_frontend_api__ ?? {}
-  // Preferred approach: call Clerk's JS SDK directly
-  const token = await (window as any).Clerk?.session?.getToken()
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  try {
+    const clerk = (window as any).Clerk
+    if (clerk?.session) {
+      const token = await clerk.session.getToken()
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    }
+  } catch (err) {
+    console.warn('[API Interceptor] Could not fetch Clerk token:', err)
   }
   return config
 })

@@ -1,10 +1,26 @@
 <script setup lang="ts">
+import { watch } from 'vue'
 import { useUser, useClerk } from '@clerk/vue'
+import { useAuthStore } from '@/stores/auth'
 
 const { user, isSignedIn } = useUser()
 const clerk = useClerk()
+const authStore = useAuthStore()
+
+watch(
+  isSignedIn,
+  (signedIn) => {
+    if (signedIn) {
+      authStore.syncWithBackend()
+    } else {
+      authStore.clearAuth()
+    }
+  },
+  { immediate: true }
+)
 
 function handleSignOut() {
+  authStore.clearAuth()
   if (clerk && 'value' in clerk && clerk.value) {
     clerk.value.signOut({ redirectUrl: '/login' })
   } else if (clerk && 'signOut' in clerk) {
@@ -25,9 +41,27 @@ function handleSignOut() {
           <div>
             <div class="flex items-center gap-2">
               <span class="font-extrabold text-base tracking-tight text-[#1C1B18]">Untangle</span>
-              <span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider rounded-full bg-[#E8F0EC] text-[#3D6B5A] border border-[#C4D8CC]">
-                <span class="w-1.5 h-1.5 rounded-full bg-[#4E9A7D] animate-pulse"></span>
-                Live Sync
+              <span
+                class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider rounded-full border transition-all"
+                :class="[
+                  authStore.isBackendConnected
+                    ? 'bg-[#E8F0EC] text-[#3D6B5A] border-[#C4D8CC]'
+                    : authStore.isSyncing
+                    ? 'bg-[#FDF6E2] text-[#B8924A] border-[#E8DAB2]'
+                    : 'bg-[#EFEFED] text-[#5C5A54] border-[#D4D3CE]'
+                ]"
+              >
+                <span
+                  class="w-1.5 h-1.5 rounded-full"
+                  :class="[
+                    authStore.isBackendConnected
+                      ? 'bg-[#4E9A7D] animate-pulse'
+                      : authStore.isSyncing
+                      ? 'bg-[#B8924A] animate-ping'
+                      : 'bg-[#8A877F]'
+                  ]"
+                ></span>
+                {{ authStore.isBackendConnected ? 'Backend Synced' : authStore.isSyncing ? 'Connecting...' : 'Local Dev' }}
               </span>
             </div>
             <div class="hidden md:flex items-center gap-1.5 text-[11px] text-[#8A877F] font-medium">
@@ -54,11 +88,20 @@ function handleSignOut() {
               {{ user.firstName?.charAt(0) ?? 'U' }}
             </div>
             <div class="hidden sm:block text-left">
-              <span class="text-xs font-bold text-[#1C1B18] block leading-tight">
-                {{ user.fullName ?? 'Scholar' }}
-              </span>
-              <span class="text-[10px] font-mono text-[#8A877F] block leading-none">
-                {{ user.primaryEmailAddress?.emailAddress?.split('@')[0] }}
+              <div class="flex items-center gap-1">
+                <span class="text-xs font-bold text-[#1C1B18] block leading-tight">
+                  {{ user.fullName ?? 'Scholar' }}
+                </span>
+                <span
+                  v-if="authStore.isBackendConnected"
+                  class="material-symbols-outlined text-[13px] text-[#4E9A7D]"
+                  title="Backend DB Synced"
+                >
+                  check_circle
+                </span>
+              </div>
+              <span class="text-[10px] font-mono text-[#8A877F] block leading-none mt-0.5">
+                {{ user.primaryEmailAddress?.emailAddress ?? user.id }}
               </span>
             </div>
           </div>
