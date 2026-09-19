@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-
+import { useAuth } from '@clerk/vue'
 /**
  * Application router — three pages:
  *  /login        → LoginView    (public)
@@ -40,9 +40,15 @@ const router = createRouter({
  * redirect to /login. Simple and sufficient for v1.
  */
 router.beforeEach((to) => {
-  const isAuthenticated = !!localStorage.getItem('access_token')
-  if (to.meta.requiresAuth && !isAuthenticated) {
+  const { isSignedIn, isLoaded } = useAuth()
+  // Wait until Clerk has finished loading session state
+  if (!isLoaded.value) return
+  if (to.meta.requiresAuth && !isSignedIn.value) {
     return { name: 'login' }
+  }
+  // Redirect already-signed-in users away from the login page
+  if (to.name === 'login' && isSignedIn.value) {
+    return { name: 'home' }
   }
 })
 

@@ -18,24 +18,24 @@ export const api = axios.create({
   },
 })
 
-// Request interceptor — inject Bearer token on every outgoing request
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
+// // Request interceptor — inject Bearer token on every outgoing request
+// api.interceptors.request.use((config) => {
+//   const token = localStorage.getItem('access_token')
+//   if (token) {
+//     config.headers.Authorization = `Bearer ${token}`
+//   }
+//   return config
+// })
+
+// Attach Clerk session token before every request.
+// We import lazily inside the interceptor to avoid circular init issues.
+api.interceptors.request.use(async (config) => {
+  // // @clerk/vue exposes getToken() on the window via the loaded plugin
+  // const { getToken } = (window as any).__clerk_frontend_api__ ?? {}
+  // Preferred approach: call Clerk's JS SDK directly
+  const token = await (window as any).Clerk?.session?.getToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
-
-// Response interceptor — redirect to login on 401 (token expired/invalid)
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('access_token')
-      window.location.href = '/login'
-    }
-    return Promise.reject(error)
-  },
-)
-
