@@ -7,16 +7,11 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.api.deps import get_current_active_user, get_db
+from app.api.deps import get_current_active_user
 from app.core.config import get_settings
-from app.db.base import Base
 from app.main import app
 from app.models.user import User
-
 from tests.conftest import TestingSessionLocal
 
 # Test user fixtures

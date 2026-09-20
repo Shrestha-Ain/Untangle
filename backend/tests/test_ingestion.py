@@ -3,23 +3,22 @@ Unit and integration tests for LangGraph Ingestion Pipeline and Graph Service.
 """
 
 import uuid
-from pathlib import Path
-import pytest
 from unittest.mock import MagicMock, patch
 
-from app.models.document import Document, IngestionJob
-from app.models.user import User
+import pytest
+
 from app.llm.prompts import (
     CommunitySummaryResult,
     ExtractedEntity,
     ExtractedRelationship,
     ExtractionResult,
 )
+from app.models.document import Document, IngestionJob
+from app.models.user import User
 from app.services import graph_service
 from app.services.ingestion.pipeline import (
     chunk_node,
     extract_node,
-    finalize_node,
     parse_node,
 )
 from app.tasks.ingestion import run_ingestion_pipeline

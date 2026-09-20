@@ -5,7 +5,7 @@ Integration tests for Knowledge Graph REST API endpoints.
 from __future__ import annotations
 
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient

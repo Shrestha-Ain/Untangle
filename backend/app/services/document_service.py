@@ -5,7 +5,6 @@ Document management service — handling upload file storage, database records, 
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 import uuid
 from pathlib import Path

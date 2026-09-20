@@ -8,7 +8,7 @@ cross-source linking, and Celery asynchronous ingestion tracking.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
@@ -72,13 +72,13 @@ class Document(Base):
     )
     created_at: Mapped[Any] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
         nullable=False,
     )
     updated_at: Mapped[Any] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
@@ -144,7 +144,7 @@ class DocumentLink(Base):
     )  # "suggested" | "accepted" | "rejected"
     created_at: Mapped[Any] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
         nullable=False,
     )
@@ -193,13 +193,13 @@ class IngestionJob(Base):
     roads_laid: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[Any] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
         nullable=False,
     )
     updated_at: Mapped[Any] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,

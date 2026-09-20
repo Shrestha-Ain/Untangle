@@ -12,6 +12,7 @@ import logging
 import uuid
 from typing import Annotated
 
+import redis.asyncio as aioredis
 from fastapi import (
     APIRouter,
     Depends,
@@ -20,7 +21,6 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
-import redis.asyncio as aioredis
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings

@@ -3,6 +3,7 @@ Unit tests for FastEmbed local embedding service.
 """
 
 import math
+
 from app.llm.embeddings import FastEmbedService, get_embedding_service
 
 

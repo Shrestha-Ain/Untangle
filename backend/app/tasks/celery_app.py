@@ -8,8 +8,8 @@ import json
 import logging
 from typing import Any
 
-from celery import Celery
 import redis
+from celery import Celery
 
 from app.core.config import get_settings
 

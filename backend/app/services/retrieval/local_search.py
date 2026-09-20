@@ -7,10 +7,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from neo4j.exceptions import Neo4jError, ServiceUnavailable
 from pydantic import BaseModel, Field
 from qdrant_client.http.exceptions import ApiException
 from qdrant_client.http.models import FieldCondition, Filter, MatchValue
-from neo4j.exceptions import Neo4jError, ServiceUnavailable
 
 from app.db.neo4j import get_neo4j_driver
 from app.db.qdrant import CHUNKS_COLLECTION, ENTITIES_COLLECTION, get_qdrant_client

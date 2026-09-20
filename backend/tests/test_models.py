@@ -8,32 +8,24 @@ Tests:
 4. Qdrant in-memory collection initialization
 """
 
-import uuid
 import pytest
 from qdrant_client import QdrantClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.db.base import Base
-from app.models.chat import ChatMessage, ChatSession
-from app.models.document import Document, DocumentLink, IngestionJob
-from app.models.user import User
-from app.schemas.chat import (
-    ChatMessageCreate,
-    ChatMessageRead,
-    ChatSessionCreate,
-    ChatSessionRead,
-    ChatStreamDoneEvent,
-    SubgraphData,
-)
-from app.schemas.document import DocumentCreate, DocumentRead
 from app.db.qdrant import (
     CHUNKS_COLLECTION,
     ENTITIES_COLLECTION,
     TOPICS_COLLECTION,
     init_qdrant_collections,
 )
+from app.models.chat import ChatMessage, ChatSession
+from app.models.document import Document, DocumentLink, IngestionJob
+from app.models.user import User
+from app.schemas.chat import (
+    ChatSessionRead,
+    ChatStreamDoneEvent,
+    SubgraphData,
+)
+from app.schemas.document import DocumentRead
 from tests.conftest import TestingSessionLocal
 
 

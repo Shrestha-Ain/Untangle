@@ -12,9 +12,9 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db as deps_get_db
 from app.db.base import Base
-from app.db.session import SessionLocal, get_db as session_get_db
+from app.db.session import SessionLocal
+from app.db.session import get_db as session_get_db
 from app.main import app
-
 from app.tasks.celery_app import celery_app
 
 SQLITE_URL = "sqlite:///:memory:"
