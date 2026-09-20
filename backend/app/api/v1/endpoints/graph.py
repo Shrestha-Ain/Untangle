@@ -35,7 +35,10 @@ from app.schemas.graph import (
     TownGraphResponse,
 )
 from app.services import document_service, graph_service
-from app.services.retrieval.global_search import GlobalSearchResult, execute_global_search
+from app.services.retrieval.global_search import (
+    GlobalSearchResult,
+    execute_global_search,
+)
 from app.services.retrieval.local_search import LocalSearchResult, execute_local_search
 from app.services.retrieval.study_features import (
     generate_exam_gist,
