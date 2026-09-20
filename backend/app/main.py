@@ -100,6 +100,7 @@ def create_app() -> FastAPI:
 
     app.include_router(api_v1_router)
     app.include_router(ws.router)
+    app.include_router(ws.router, prefix="/api/v1")
 
     # ── Health check ──────────────────────────────────────────────────
     @app.get("/api/health", tags=["Health"])

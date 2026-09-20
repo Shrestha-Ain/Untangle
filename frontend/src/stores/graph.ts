@@ -146,19 +146,49 @@ export const useGraphStore = defineStore('graph', {
         const endpoint = mode === 'study' ? `/graph/${documentId}/study-map` : `/graph/${documentId}/town`
         const { data } = await api.get(endpoint)
         if (data && data.nodes) {
-          this.nodes = data.nodes
-          this.edges = data.edges || []
+          // Normalize nodes — backend may not include mention_count or path_order
+          this.nodes = (data.nodes || []).map((n: any) => ({
+            id: n.id,
+            name: n.name || n.id,
+            type: n.type || 'CONCEPT',
+            description: n.description || '',
+            mention_count: n.mention_count || n.level || 1,
+            level: n.level || 1,
+            path_order: n.path_order,
+            x: n.x,
+            y: n.y,
+          }))
+
+          // Normalize edges — backend uses {source, target, relation},
+          // frontend expects {source_id, target_id, relation_type, id}
+          this.edges = (data.edges || []).map((e: any, idx: number) => ({
+            id: e.id || `edge-${e.source || e.source_id}-${e.target || e.target_id}-${idx}`,
+            source_id: e.source_id || e.source || '',
+            target_id: e.target_id || e.target || '',
+            relation_type: e.relation_type || e.relation || 'RELATES_TO',
+            is_cross_source: e.is_cross_source || false,
+          }))
+
           this.communityData = data.communities || []
+
           // Try to get learning path from backend
           try {
             const pathRes = await api.get(`/graph/${documentId}/learning-path`)
-            if (Array.isArray(pathRes.data)) {
-              this.learningPath = pathRes.data
+            const pathData = pathRes.data
+            if (Array.isArray(pathData)) {
+              // Direct array of IDs
+              this.learningPath = pathData
+            } else if (pathData?.steps && Array.isArray(pathData.steps)) {
+              // Backend returns { document_id, steps: [{step_index, id, name, ...}] }
+              this.learningPath = pathData.steps.map((s: any) => s.id)
+            } else {
+              this.computeDefaultLearningPath()
             }
           } catch {
             // Compute fallback learning path from nodes sorted by path_order
             this.computeDefaultLearningPath()
           }
+          this.isLoading = false
           return
         }
       } catch (err) {
@@ -278,7 +308,33 @@ export const useGraphStore = defineStore('graph', {
       try {
         const { data } = await api.get(`/graph/${this.currentDocumentId}/nodes/${nodeId}/dossier`)
         if (data) {
-          this.activeDossier = data
+          // Normalize backend NodeDossierResponse → frontend TopicDossier
+          // Backend: { text_chunks, description, incoming_relations, outgoing_relations }
+          // Frontend: { raw_chunks, summary, prerequisites, next_concepts, exam_gist }
+          this.activeDossier = {
+            node_id: data.node_id,
+            name: data.name,
+            type: data.type || 'CONCEPT',
+            path_step: data.path_step,
+            summary: data.summary || data.description || '',
+            key_formulas_or_code: data.key_formulas_or_code || [],
+            raw_chunks: (data.raw_chunks || data.text_chunks || []).map((c: any) => ({
+              chunk_id: c.chunk_id || c.id || `chunk-${Math.random().toString(36).slice(2, 8)}`,
+              section_ref: c.section_ref || c.metadata?.section || 'Source Document',
+              text: c.text || c.content || c.payload?.text || '',
+            })),
+            prerequisites: data.prerequisites ||
+              (data.incoming_relations || [])
+                .map((r: any) => r.source || r.name || '')
+                .filter(Boolean)
+                .slice(0, 5),
+            next_concepts: data.next_concepts ||
+              (data.outgoing_relations || [])
+                .map((r: any) => r.target || r.name || '')
+                .filter(Boolean)
+                .slice(0, 5),
+            exam_gist: data.exam_gist || undefined,
+          }
           this.isLoading = false
           return
         }
