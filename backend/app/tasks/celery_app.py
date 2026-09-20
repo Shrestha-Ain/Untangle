@@ -11,6 +11,7 @@ from typing import Any
 import redis
 from celery import Celery
 
+import app.models  # noqa: F401
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)

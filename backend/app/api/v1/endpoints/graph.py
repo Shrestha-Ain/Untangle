@@ -54,22 +54,27 @@ router = APIRouter(prefix="/graph", tags=["Knowledge Graph"])
 
 
 def _verify_document_access(
-    db: Session, document_id: uuid.UUID, user_id: uuid.UUID
+    db: Session, document_id: str, user_id: uuid.UUID
 ) -> None:
-    """Ensure document exists and belongs to the active user."""
-    doc = document_service.get_document_by_id(
-        db=db, document_id=document_id, user_id=user_id
-    )
-    if not doc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found",
+    """Ensure document exists and belongs to the active user (if valid UUID)."""
+    try:
+        doc_uuid = uuid.UUID(document_id)
+        doc = document_service.get_document_by_id(
+            db=db, document_id=doc_uuid, user_id=user_id
         )
+        if not doc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found",
+            )
+    except ValueError:
+        # Allow non-UUID string identifiers (e.g. demo docs or mock IDs)
+        pass
 
 
 @router.get("/{document_id}/town", response_model=TownGraphResponse)
 def get_town_graph(
-    document_id: uuid.UUID,
+    document_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -77,10 +82,9 @@ def get_town_graph(
     Retrieve nodes and edges for the isometric Knowledge Town graph (Research Mode).
     """
     _verify_document_access(db, document_id, current_user.id)
-    doc_id_str = str(document_id)
-    data = graph_service.get_document_town_graph(doc_id_str)
+    data = graph_service.get_document_town_graph(document_id)
     return TownGraphResponse(
-        document_id=doc_id_str,
+        document_id=document_id,
         nodes=data.get("nodes", []),
         edges=data.get("edges", []),
     )
@@ -88,7 +92,7 @@ def get_town_graph(
 
 @router.get("/{document_id}/study-map", response_model=StudyMapResponse)
 def get_study_map_endpoint(
-    document_id: uuid.UUID,
+    document_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -97,10 +101,9 @@ def get_study_map_endpoint(
     and canvas graph nodes/edges (Study Mode).
     """
     _verify_document_access(db, document_id, current_user.id)
-    doc_id_str = str(document_id)
-    data = get_study_map(doc_id_str)
+    data = get_study_map(document_id)
     return StudyMapResponse(
-        document_id=doc_id_str,
+        document_id=document_id,
         chapters=data.get("chapters", []),
         nodes=data.get("nodes", []),
         edges=data.get("edges", []),
@@ -109,7 +112,7 @@ def get_study_map_endpoint(
 
 @router.get("/{document_id}/communities", response_model=list[CommunityRead])
 def get_communities_endpoint(
-    document_id: uuid.UUID,
+    document_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -117,15 +120,14 @@ def get_communities_endpoint(
     Retrieve all Leiden community clusters for a document with thematic summaries and ratings.
     """
     _verify_document_access(db, document_id, current_user.id)
-    doc_id_str = str(document_id)
-    return get_communities_list(doc_id_str)
+    return get_communities_list(document_id)
 
 
 @router.get(
     "/{document_id}/nodes/{node_id}/dossier", response_model=NodeDossierResponse
 )
 def get_node_dossier_endpoint(
-    document_id: uuid.UUID,
+    document_id: str,
     node_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -135,14 +137,13 @@ def get_node_dossier_endpoint(
     1-hop relationship edges, and verbatim source text chunks.
     """
     _verify_document_access(db, document_id, current_user.id)
-    doc_id_str = str(document_id)
-    data = get_node_dossier(doc_id_str, node_id)
+    data = get_node_dossier(document_id, node_id)
     return NodeDossierResponse(**data)
 
 
 @router.get("/{document_id}/learning-path", response_model=LearningPathResponse)
 def get_learning_path_endpoint(
-    document_id: uuid.UUID,
+    document_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -150,14 +151,13 @@ def get_learning_path_endpoint(
     Retrieve ordered pedagogical learning path with prerequisite gates and context flags.
     """
     _verify_document_access(db, document_id, current_user.id)
-    doc_id_str = str(document_id)
-    steps = get_learning_path(doc_id_str)
-    return LearningPathResponse(document_id=doc_id_str, steps=steps)
+    steps = get_learning_path(document_id)
+    return LearningPathResponse(document_id=document_id, steps=steps)
 
 
 @router.get("/{document_id}/exam-gist", response_model=ExamGistResponse)
 def get_exam_gist_endpoint(
-    document_id: uuid.UUID,
+    document_id: str,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -166,14 +166,13 @@ def get_exam_gist_endpoint(
     formulas, pitfalls, likely exam questions).
     """
     _verify_document_access(db, document_id, current_user.id)
-    doc_id_str = str(document_id)
-    data = generate_exam_gist(doc_id_str)
+    data = generate_exam_gist(document_id)
     return ExamGistResponse(**data)
 
 
 @router.post("/{document_id}/search/local", response_model=LocalSearchResult)
 def search_local_endpoint(
-    document_id: uuid.UUID,
+    document_id: str,
     request: LocalSearchRequest,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -182,9 +181,8 @@ def search_local_endpoint(
     Execute local graph search: seed entity discovery + 1-hop Neo4j subgraph expansion + verbatim chunks.
     """
     _verify_document_access(db, document_id, current_user.id)
-    doc_id_str = str(document_id)
     return execute_local_search(
-        document_id=doc_id_str,
+        document_id=document_id,
         query=request.query,
         top_k_seeds=request.top_k_seeds,
         top_k_chunks=request.top_k_chunks,
@@ -193,7 +191,7 @@ def search_local_endpoint(
 
 @router.post("/{document_id}/search/global", response_model=GlobalSearchResult)
 def search_global_endpoint(
-    document_id: uuid.UUID,
+    document_id: str,
     request: GlobalSearchRequest,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -202,6 +200,4 @@ def search_global_endpoint(
     Execute global graph search: map-reduce synthesis across Leiden community summaries.
     """
     _verify_document_access(db, document_id, current_user.id)
-    doc_id_str = str(document_id)
-    return execute_global_search(document_id=doc_id_str, query=request.query)
-
+    return execute_global_search(document_id=document_id, query=request.query)

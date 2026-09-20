@@ -117,9 +117,16 @@ export const useDocumentsStore = defineStore('documents', {
           const formData = new FormData()
           formData.append('file', file)
           formData.append('source_mode', mode)
-          await api.post('/documents/upload', formData, {
+          const res = await api.post('/documents/upload', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
           })
+          if (res.data?.id) {
+            newDoc.id = res.data.id
+            this.activeDocumentId = res.data.id
+            if (this.ingestionState) {
+              this.ingestionState.documentId = res.data.id
+            }
+          }
         }
       } catch (e) {
         console.warn('Backend upload skipped (mock mode active):', e)

@@ -9,7 +9,7 @@ import uuid
 from typing import Any
 
 from app.db.session import SessionLocal
-from app.models.document import Document, IngestionJob
+from app.models import Document, IngestionJob, User  # noqa: F401
 from app.services.ingestion.pipeline import ingestion_pipeline_app, update_db_job
 from app.tasks.celery_app import celery_app, publish_telemetry
 
