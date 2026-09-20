@@ -6,12 +6,20 @@ Adapted from the system design §5.2 schema. The original design had
 `clerk_id` as the external identity link.
 """
 
+from __future__ import annotations
+
 import uuid
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Boolean, DateTime, String, Uuid, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
+
+if TYPE_CHECKING:
+    from app.models.chat import ChatSession
+    from app.models.document import Document
 
 
 class User(Base):
@@ -39,11 +47,24 @@ class User(Base):
     last_name: Mapped[str | None] = mapped_column(String, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[str] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+    created_at: Mapped[Any] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
     )
-    updated_at: Mapped[str] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    updated_at: Mapped[Any] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    # Relationships
+    documents: Mapped[list[Document]] = relationship(
+        "Document", back_populates="user", cascade="all, delete-orphan"
+    )
+    chat_sessions: Mapped[list[ChatSession]] = relationship(
+        "ChatSession", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

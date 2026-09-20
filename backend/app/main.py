@@ -20,6 +20,8 @@ from app.api.v1.router import api_v1_router
 from app.core.config import get_settings
 from app.core.security import get_jwks_manager
 from app.db.base import Base
+from app.db.neo4j import close_neo4j_driver, init_neo4j_schema
+from app.db.qdrant import close_qdrant_client, init_qdrant_collections
 from app.db.session import engine
 
 logger = logging.getLogger(__name__)
@@ -32,10 +34,13 @@ async def lifespan(app: FastAPI):
 
     Startup:
     - Create database tables (dev convenience — use Alembic migrations in production)
+    - Initialize Neo4j constraints & indexes
+    - Initialize Qdrant vector collections
     - Pre-warm the Clerk JWKS cache so first auth request doesn't block
 
     Shutdown:
     - Cleanup resources
+    - Cleanup database & driver connections
     """
     settings = get_settings()
 
@@ -51,6 +56,10 @@ async def lifespan(app: FastAPI):
             "Database table creation deferred (PostgreSQL not reachable yet): %s", exc
         )
 
+    # Initialize graph and vector store schemas
+    init_neo4j_schema()
+    init_qdrant_collections()
+
     # Pre-warm JWKS cache
     jwks_manager = get_jwks_manager()
     jwks_manager.warmup()
@@ -59,6 +68,8 @@ async def lifespan(app: FastAPI):
 
     # ── Shutdown ──────────────────────────────────────────────────────
     logger.info("Shutting down %s", settings.project_name)
+    close_neo4j_driver()
+    close_qdrant_client()
     engine.dispose()
 
 
@@ -85,7 +96,10 @@ def create_app() -> FastAPI:
     )
 
     # ── Routers ───────────────────────────────────────────────────────
+    from app.api.v1.endpoints import ws
+
     app.include_router(api_v1_router)
+    app.include_router(ws.router)
 
     # ── Health check ──────────────────────────────────────────────────
     @app.get("/api/health", tags=["Health"])

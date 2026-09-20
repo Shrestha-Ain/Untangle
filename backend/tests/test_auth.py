@@ -22,37 +22,11 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 from jose import jwt
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.api.deps import get_db
 from app.core.config import get_settings
 from app.core.security import get_jwks_manager
-from app.db.base import Base
 from app.main import app
-
-# ── In-memory SQLite Database for Testing ──────────────────────────────
-# SQLite in-memory with StaticPool ensures all threads share the same in-memory DB
-SQLITE_URL = "sqlite:///:memory:"
-
-test_engine = create_engine(
-    SQLITE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
-
-
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
+from tests.conftest import TestingSessionLocal
 
 
 # ── RSA Key Pair Generation for Mocking Clerk ─────────────────────────
@@ -78,8 +52,12 @@ def rsa_keypair():
 
     # Generate public numbers for JWKS dict format
     public_numbers = public_key.public_numbers()
-    e_bytes = public_numbers.e.to_bytes((public_numbers.e.bit_length() + 7) // 8, byteorder="big")
-    n_bytes = public_numbers.n.to_bytes((public_numbers.n.bit_length() + 7) // 8, byteorder="big")
+    e_bytes = public_numbers.e.to_bytes(
+        (public_numbers.e.bit_length() + 7) // 8, byteorder="big"
+    )
+    n_bytes = public_numbers.n.to_bytes(
+        (public_numbers.n.bit_length() + 7) // 8, byteorder="big"
+    )
 
     jwk_dict = {
         "kty": "RSA",
@@ -98,12 +76,7 @@ def rsa_keypair():
     }
 
 
-@pytest.fixture(autouse=True)
-def setup_test_db():
-    """Create all tables before each test and drop after."""
-    Base.metadata.create_all(bind=test_engine)
-    yield
-    Base.metadata.drop_all(bind=test_engine)
+
 
 
 @pytest.fixture
@@ -122,16 +95,20 @@ def make_test_jwt(rsa_keypair, sub="user_2test123", expired=False):
         "azp": "http://localhost:5173",
     }
     headers = {"kid": rsa_keypair["kid"], "alg": "RS256"}
-    return jwt.encode(payload, rsa_keypair["private_pem"], algorithm="RS256", headers=headers)
+    return jwt.encode(
+        payload, rsa_keypair["private_pem"], algorithm="RS256", headers=headers
+    )
 
 
-def make_svix_headers(payload_bytes: bytes, secret: str = "whsec_testsecret12345678901234567890"):
+def make_svix_headers(
+    payload_bytes: bytes, secret: str = "whsec_testsecret12345678901234567890"
+):
     """Helper to generate valid svix webhook signature headers."""
     svix_id = f"msg_{uuid.uuid4().hex}"
     svix_timestamp = str(int(time.time()))
 
     # Decode secret (strip whsec_ prefix if present)
-    sec = secret[6:] if secret.startswith("whsec_") else secret
+    sec = secret.removeprefix("whsec_")
     # Ensure proper base64 padding
     padded_sec = sec + "=" * ((4 - len(sec) % 4) % 4)
     secret_bytes = base64.b64decode(padded_sec)
@@ -150,6 +127,7 @@ def make_svix_headers(payload_bytes: bytes, secret: str = "whsec_testsecret12345
 
 # ── Tests ─────────────────────────────────────────────────────────────
 
+
 def test_health_check(client):
     """Test public health endpoint."""
     response = client.get("/api/health")
@@ -165,7 +143,9 @@ def test_auth_me_unauthorized(client):
 
 def test_auth_me_invalid_token(client):
     """Request with malformed token must return 401."""
-    response = client.get("/api/v1/auth/me", headers={"Authorization": "Bearer not-a-valid-token"})
+    response = client.get(
+        "/api/v1/auth/me", headers={"Authorization": "Bearer not-a-valid-token"}
+    )
     assert response.status_code == 401
 
 
@@ -176,7 +156,9 @@ def test_auth_me_expired_token(client, rsa_keypair):
     manager._last_fetched = time.time()
 
     token = make_test_jwt(rsa_keypair, expired=True)
-    response = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    response = client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
     assert response.status_code == 401
     assert "expired" in response.json()["detail"].lower()
 
@@ -193,7 +175,9 @@ def test_auth_me_jit_provisioning_and_lookup(client, rsa_keypair):
     token = make_test_jwt(rsa_keypair, sub="user_clerk_jit_999")
 
     # First request: JIT provision
-    response1 = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    response1 = client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
     assert response1.status_code == 200
     data1 = response1.json()
     assert data1["clerk_id"] == "user_clerk_jit_999"
@@ -201,7 +185,9 @@ def test_auth_me_jit_provisioning_and_lookup(client, rsa_keypair):
     user_id = data1["id"]
 
     # Second request: fetches same user
-    response2 = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    response2 = client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
     assert response2.status_code == 200
     data2 = response2.json()
     assert data2["id"] == user_id
@@ -225,7 +211,7 @@ def test_clerk_webhook_lifecycle(client, monkeypatch):
     assert resp.status_code == 400
 
     # 2. user.created event
-    created_payload = b'''{
+    created_payload = b"""{
         "type": "user.created",
         "data": {
             "id": "user_webhook_123",
@@ -237,14 +223,14 @@ def test_clerk_webhook_lifecycle(client, monkeypatch):
                 {"id": "email_1", "email_address": "ada@example.com"}
             ]
         }
-    }'''
+    }"""
     headers = make_svix_headers(created_payload, secret=test_secret)
     resp = client.post("/api/v1/auth/webhook", content=created_payload, headers=headers)
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
 
     # 3. user.updated event
-    updated_payload = b'''{
+    updated_payload = b"""{
         "type": "user.updated",
         "data": {
             "id": "user_webhook_123",
@@ -256,18 +242,18 @@ def test_clerk_webhook_lifecycle(client, monkeypatch):
                 {"id": "email_1", "email_address": "ada.updated@example.com"}
             ]
         }
-    }'''
+    }"""
     headers = make_svix_headers(updated_payload, secret=test_secret)
     resp = client.post("/api/v1/auth/webhook", content=updated_payload, headers=headers)
     assert resp.status_code == 200
 
     # 4. user.deleted event (soft delete / deactivate)
-    deleted_payload = b'''{
+    deleted_payload = b"""{
         "type": "user.deleted",
         "data": {
             "id": "user_webhook_123"
         }
-    }'''
+    }"""
     headers = make_svix_headers(deleted_payload, secret=test_secret)
     resp = client.post("/api/v1/auth/webhook", content=deleted_payload, headers=headers)
     assert resp.status_code == 200
@@ -287,6 +273,7 @@ def test_deactivated_user_forbidden(client, rsa_keypair):
     # Deactivate the user directly in DB
     db = TestingSessionLocal()
     from app.services import user_service
+
     user_service.deactivate_user(db, "user_to_deactivate")
     db.close()
 
@@ -294,4 +281,3 @@ def test_deactivated_user_forbidden(client, rsa_keypair):
     resp = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 403
     assert "deactivated" in resp.json()["detail"].lower()
-

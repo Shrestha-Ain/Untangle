@@ -36,12 +36,28 @@ class Settings(BaseSettings):
 
     # ── LLM (stubs for future phases) ─────────────────────────────────
     llm_provider: str = "anthropic"
+    # ── LLM & AI Providers ────────────────────────────────────────────
+    gemini_api_key: str = ""
+    groq_api_key: str = ""
     anthropic_api_key: str = ""
-    extraction_model: str = "claude-haiku-4-5"
-    synthesis_model: str = "claude-sonnet-4-6"
-    embedding_model: str = "text-embedding-3-small"
+    openai_api_key: str = ""
 
     # ── App / CORS ────────────────────────────────────────────────────
+    # Models (Defaulting to Phase 0 decisions)
+    extraction_model: str = "gemini-3.5-flash-lite"
+    extraction_model_fallback: str = "gemini-2.5-flash-lite"
+    synthesis_model: str = "gemini-3.5-flash"
+    synthesis_model_fallback: str = "llama-3.3-70b-versatile"
+    chat_model: str = "llama-3.3-70b-versatile"
+    chat_model_fallback: str = "gemini-3.5-flash"
+
+    # Embeddings (Local FastEmbed)
+    embedding_provider: str = "fastembed"
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_dim: int = 384
+
+    # ── Storage / App / CORS ──────────────────────────────────────────
+    upload_dir: str = "uploads"
     project_name: str = "Untangle"
     environment: str = "development"
     cors_origins: list[str] = ["http://localhost:5173"]

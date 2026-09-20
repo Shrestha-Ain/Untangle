@@ -1,0 +1,204 @@
+"""
+Knowledge Graph REST endpoints for Research and Study modes.
+
+Endpoints:
+- GET  /graph/{doc_id}/town            — Isometric Town Map nodes and edges
+- GET  /graph/{doc_id}/study-map       — Textbook hierarchy tree and canvas elements
+- GET  /graph/{doc_id}/communities     — Leiden community cluster reports
+- GET  /graph/{doc_id}/nodes/{id}/dossier — Deep-dive entity/concept dossier
+- GET  /graph/{doc_id}/learning-path   — Pedagogical curriculum sequence
+- GET  /graph/{doc_id}/exam-gist       — 2-minute rapid revision takeaways
+- POST /graph/{doc_id}/search/local    — Seed entity discovery + subgraph expansion
+- POST /graph/{doc_id}/search/global   — Community map-reduce query synthesis
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_active_user
+from app.db.session import get_db
+from app.models.user import User
+from app.schemas.graph import (
+    CommunityRead,
+    ExamGistResponse,
+    GlobalSearchRequest,
+    LearningPathResponse,
+    LocalSearchRequest,
+    NodeDossierResponse,
+    StudyMapResponse,
+    TownGraphResponse,
+)
+from app.services import document_service, graph_service
+from app.services.retrieval.global_search import GlobalSearchResult, execute_global_search
+from app.services.retrieval.local_search import LocalSearchResult, execute_local_search
+from app.services.retrieval.study_features import (
+    generate_exam_gist,
+    get_communities_list,
+    get_learning_path,
+    get_node_dossier,
+    get_study_map,
+)
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/graph", tags=["Knowledge Graph"])
+
+
+def _verify_document_access(
+    db: Session, document_id: uuid.UUID, user_id: uuid.UUID
+) -> None:
+    """Ensure document exists and belongs to the active user."""
+    doc = document_service.get_document_by_id(
+        db=db, document_id=document_id, user_id=user_id
+    )
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+
+@router.get("/{document_id}/town", response_model=TownGraphResponse)
+def get_town_graph(
+    document_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Retrieve nodes and edges for the isometric Knowledge Town graph (Research Mode).
+    """
+    _verify_document_access(db, document_id, current_user.id)
+    doc_id_str = str(document_id)
+    data = graph_service.get_document_town_graph(doc_id_str)
+    return TownGraphResponse(
+        document_id=doc_id_str,
+        nodes=data.get("nodes", []),
+        edges=data.get("edges", []),
+    )
+
+
+@router.get("/{document_id}/study-map", response_model=StudyMapResponse)
+def get_study_map_endpoint(
+    document_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Retrieve textbook hierarchy (Chapter -> Section -> Topic -> Subtopic)
+    and canvas graph nodes/edges (Study Mode).
+    """
+    _verify_document_access(db, document_id, current_user.id)
+    doc_id_str = str(document_id)
+    data = get_study_map(doc_id_str)
+    return StudyMapResponse(
+        document_id=doc_id_str,
+        chapters=data.get("chapters", []),
+        nodes=data.get("nodes", []),
+        edges=data.get("edges", []),
+    )
+
+
+@router.get("/{document_id}/communities", response_model=list[CommunityRead])
+def get_communities_endpoint(
+    document_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Retrieve all Leiden community clusters for a document with thematic summaries and ratings.
+    """
+    _verify_document_access(db, document_id, current_user.id)
+    doc_id_str = str(document_id)
+    return get_communities_list(doc_id_str)
+
+
+@router.get(
+    "/{document_id}/nodes/{node_id}/dossier", response_model=NodeDossierResponse
+)
+def get_node_dossier_endpoint(
+    document_id: uuid.UUID,
+    node_id: str,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Retrieve deep-dive dossier for a single concept/entity: attributes,
+    1-hop relationship edges, and verbatim source text chunks.
+    """
+    _verify_document_access(db, document_id, current_user.id)
+    doc_id_str = str(document_id)
+    data = get_node_dossier(doc_id_str, node_id)
+    return NodeDossierResponse(**data)
+
+
+@router.get("/{document_id}/learning-path", response_model=LearningPathResponse)
+def get_learning_path_endpoint(
+    document_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Retrieve ordered pedagogical learning path with prerequisite gates and context flags.
+    """
+    _verify_document_access(db, document_id, current_user.id)
+    doc_id_str = str(document_id)
+    steps = get_learning_path(doc_id_str)
+    return LearningPathResponse(document_id=doc_id_str, steps=steps)
+
+
+@router.get("/{document_id}/exam-gist", response_model=ExamGistResponse)
+def get_exam_gist_endpoint(
+    document_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Retrieve 2-minute rapid revision exam summary (high-yield concepts,
+    formulas, pitfalls, likely exam questions).
+    """
+    _verify_document_access(db, document_id, current_user.id)
+    doc_id_str = str(document_id)
+    data = generate_exam_gist(doc_id_str)
+    return ExamGistResponse(**data)
+
+
+@router.post("/{document_id}/search/local", response_model=LocalSearchResult)
+def search_local_endpoint(
+    document_id: uuid.UUID,
+    request: LocalSearchRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Execute local graph search: seed entity discovery + 1-hop Neo4j subgraph expansion + verbatim chunks.
+    """
+    _verify_document_access(db, document_id, current_user.id)
+    doc_id_str = str(document_id)
+    return execute_local_search(
+        document_id=doc_id_str,
+        query=request.query,
+        top_k_seeds=request.top_k_seeds,
+        top_k_chunks=request.top_k_chunks,
+    )
+
+
+@router.post("/{document_id}/search/global", response_model=GlobalSearchResult)
+def search_global_endpoint(
+    document_id: uuid.UUID,
+    request: GlobalSearchRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """
+    Execute global graph search: map-reduce synthesis across Leiden community summaries.
+    """
+    _verify_document_access(db, document_id, current_user.id)
+    doc_id_str = str(document_id)
+    return execute_global_search(document_id=doc_id_str, query=request.query)
+

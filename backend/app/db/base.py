@@ -7,6 +7,8 @@ as you create them (documents, chat, player_profiles, etc.).
 """
 
 from app.db.session import Base  # noqa: F401 — re-export for convenience
+from app.models.chat import ChatMessage, ChatSession  # noqa: F401
+from app.models.document import Document, DocumentLink, IngestionJob  # noqa: F401
 from app.models.user import User  # noqa: F401
 
 # Future model imports (uncomment as you build them):
