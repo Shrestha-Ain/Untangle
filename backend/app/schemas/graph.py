@@ -28,6 +28,7 @@ class GraphNode(BaseModel):
     is_seed: bool = False
     community_id: int | None = None
     level: int = 1
+    path_order: int | None = None
 
 
 class GraphEdge(BaseModel):

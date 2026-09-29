@@ -173,6 +173,13 @@ def get_study_map(document_id: str) -> dict[str, Any]:
             }
         )
 
+    # Enrich nodes with learning-path step order for "Step X" beacons
+    path_steps = get_learning_path(document_id)
+    for step in path_steps:
+        node_id = step.get("id")
+        if node_id and node_id in nodes:
+            nodes[node_id]["path_order"] = step["step_index"]
+
     return {
         "document_id": document_id,
         "chapters": formatted_chapters,
