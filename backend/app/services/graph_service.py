@@ -156,8 +156,6 @@ def upsert_communities(
 def get_document_town_graph(document_id: str) -> dict[str, Any]:
     """
     Fetch all nodes and edges for the isometric Town Map visualization.
-    Enriches each node with ``path_order`` from the learning path so
-    the frontend can render "Step X" beacons on buildings.
     """
     try:
         driver = get_neo4j_driver()
@@ -205,20 +203,11 @@ def get_document_town_graph(document_id: str) -> dict[str, Any]:
                         }
                     )
 
-        # Enrich nodes with learning-path step order
-        from app.services.retrieval.study_features import get_learning_path
-
-        path_steps = get_learning_path(document_id)
-        for step in path_steps:
-            node_id = step.get("id")
-            if node_id and node_id in nodes:
-                nodes[node_id]["path_order"] = step["step_index"]
-
-        return {
-            "document_id": document_id,
-            "nodes": list(nodes.values()),
-            "edges": edges,
-        }
+            return {
+                "document_id": document_id,
+                "nodes": list(nodes.values()),
+                "edges": edges,
+            }
     except (Neo4jError, ServiceUnavailable, OSError) as exc:
         logger.warning("Neo4j query failed, returning empty town graph: %s", exc)
         return {"document_id": document_id, "nodes": [], "edges": []}

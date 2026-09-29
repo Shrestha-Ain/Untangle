@@ -28,7 +28,6 @@ class GraphNode(BaseModel):
     is_seed: bool = False
     community_id: int | None = None
     level: int = 1
-    path_order: int | None = None
 
 
 class GraphEdge(BaseModel):
@@ -121,6 +120,7 @@ class LearningPathStep(BaseModel):
     summary: str = ""
     needs_context: bool = False
     prerequisites: list[str] = Field(default_factory=list)
+    is_interchangeable: bool = False
 
 
 class LearningPathResponse(BaseModel):

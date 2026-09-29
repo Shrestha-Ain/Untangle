@@ -40,6 +40,15 @@ onMounted(async () => {
     await documentsStore.fetchDocuments()
   }
   await graphStore.loadGraph(documentId.value, mode.value)
+
+  // REQUIREMENT 2: Whenever we open the map, it will open with the first step automatically selected
+  if (graphStore.learningPath.length > 0) {
+    graphStore.setPathIndex(0)
+    canvasRef.value?.focusOnNode(graphStore.learningPath[0])
+  } else if (graphStore.nodes.length > 0) {
+    graphStore.selectEntity(graphStore.nodes[0].id)
+    canvasRef.value?.focusOnNode(graphStore.nodes[0].id)
+  }
 })
 
 function handleZoomIn() {

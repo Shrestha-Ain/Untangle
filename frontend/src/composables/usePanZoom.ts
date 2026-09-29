@@ -60,6 +60,15 @@ export function usePanZoom() {
     scale.value = 1
   }
 
+  function focusOn(targetX: number, targetY: number, targetScale = 1) {
+    scale.value = targetScale
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+    // Shift slightly to the left (-80px) to leave room for the right drawer
+    translateX.value = Math.round(vw / 2 - targetX * targetScale - 80)
+    translateY.value = Math.round(vh / 2 - targetY * targetScale)
+  }
+
   return {
     translateX,
     translateY,
@@ -69,6 +78,7 @@ export function usePanZoom() {
     zoomIn,
     zoomOut,
     recenter,
+    focusOn,
   }
 }
 
