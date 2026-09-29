@@ -9,19 +9,8 @@ export interface GraphNode {
   mention_count?: number
   level?: number
   path_order?: number // Step order in the sequential learning path (1, 2, 3...)
-  is_interchangeable?: boolean
   x?: number
   y?: number
-}
-
-export interface LearningPathStepItem {
-  id: string
-  name: string
-  type: string
-  step_index: number
-  summary?: string
-  prerequisites?: string[]
-  is_interchangeable?: boolean
 }
 
 export interface GraphEdge {
@@ -96,7 +85,6 @@ export const useGraphStore = defineStore('graph', {
     highlightedSubgraph: null as { nodeIds: string[]; edgeIds: string[] } | null,
     // Learning path state
     learningPath: [] as string[], // Ordered array of node IDs
-    learningPathSteps: [] as LearningPathStepItem[],
     currentPathIndex: 0,
     isPathModeActive: true,
     // Topic reader state
@@ -121,7 +109,6 @@ export const useGraphStore = defineStore('graph', {
         mentionCount: n.mention_count || 1,
         level: n.level ?? Math.min(Math.ceil((n.mention_count || 1) / 5), 5),
         pathOrder: n.path_order,
-        isInterchangeable: n.is_interchangeable || false,
         description: n.description,
         x: n.x,
         y: n.y,
@@ -147,56 +134,6 @@ export const useGraphStore = defineStore('graph', {
       const id = this.currentPathNodeId
       if (!id) return null
       return state.nodes.find((n) => n.id === id) ?? null
-    },
-
-    isStepPairInterchangeable: (state) => (idA: string, idB: string): boolean => {
-      const stepA = state.learningPathSteps.find((s) => s.id === idA)
-      const stepB = state.learningPathSteps.find((s) => s.id === idB)
-      if (stepB?.is_interchangeable || stepA?.is_interchangeable) return true
-
-      const nodeA = state.nodes.find((n) => n.id === idA)
-      const nodeB = state.nodes.find((n) => n.id === idB)
-      if (nodeA?.is_interchangeable || nodeB?.is_interchangeable) return true
-
-      // If stepB has strict prerequisites including stepA, it is NOT interchangeable
-      if (stepB?.prerequisites && stepB.prerequisites.length > 0 && nodeA) {
-        const reqs = stepB.prerequisites.map((p) => p.toLowerCase())
-        if (reqs.includes(nodeA.name.toLowerCase()) || reqs.includes(nodeA.id.toLowerCase())) {
-          return false
-        }
-      }
-
-      // Check edge relation between them
-      const edge = state.edges.find(
-        (e) => (e.source_id === idA && e.target_id === idB) || (e.source_id === idB && e.target_id === idA)
-      )
-      if (edge) {
-        const rel = edge.relation_type.toUpperCase()
-        if (rel.includes('FOUNDATION') || rel.includes('LEADS') || rel.includes('CONTAINS')) {
-          return false
-        }
-        if (rel.includes('COMBINED') || rel.includes('RELATES') || rel.includes('SIBLING') || rel.includes('INTERCHANGEABLE')) {
-          return true
-        }
-      }
-
-      // Sibling nodes of same level and type without directed dependency are interchangeable
-      if (nodeA && nodeB && nodeA.type === nodeB.type && nodeA.level === nodeB.level) {
-        return true
-      }
-
-      return false
-    },
-
-    currentStepIsInterchangeable(state): boolean {
-      if (state.learningPath.length < 2) return false
-      const currId = state.learningPath[state.currentPathIndex]
-      const prevId = state.currentPathIndex > 0 ? state.learningPath[state.currentPathIndex - 1] : null
-      const nextId = state.currentPathIndex < state.learningPath.length - 1 ? state.learningPath[state.currentPathIndex + 1] : null
-
-      if (prevId && this.isStepPairInterchangeable(prevId, currId)) return true
-      if (nextId && this.isStepPairInterchangeable(currId, nextId)) return true
-      return false
     },
   },
 
@@ -241,28 +178,9 @@ export const useGraphStore = defineStore('graph', {
             if (Array.isArray(pathData)) {
               // Direct array of IDs
               this.learningPath = pathData
-              this.learningPathSteps = pathData.map((id: string, idx: number) => {
-                const n = this.nodes.find((item) => item.id === id)
-                return {
-                  id,
-                  name: n?.name || id,
-                  type: n?.type || 'CONCEPT',
-                  step_index: idx + 1,
-                  is_interchangeable: n?.is_interchangeable || false,
-                }
-              })
             } else if (pathData?.steps && Array.isArray(pathData.steps)) {
               // Backend returns { document_id, steps: [{step_index, id, name, ...}] }
               this.learningPath = pathData.steps.map((s: any) => s.id)
-              this.learningPathSteps = pathData.steps.map((s: any) => ({
-                id: s.id,
-                name: s.name || s.id,
-                type: s.type || 'TOPIC',
-                step_index: s.step_index,
-                summary: s.summary,
-                prerequisites: s.prerequisites || [],
-                is_interchangeable: Boolean(s.is_interchangeable),
-              }))
             } else {
               this.computeDefaultLearningPath()
             }
@@ -270,14 +188,6 @@ export const useGraphStore = defineStore('graph', {
             // Compute fallback learning path from nodes sorted by path_order
             this.computeDefaultLearningPath()
           }
-
-          // REQUIREMENT 2: Automatically select the first step when map opens
-          if (this.learningPath.length > 0) {
-            this.setPathIndex(0)
-          } else if (this.nodes.length > 0) {
-            this.selectEntity(this.nodes[0].id)
-          }
-
           this.isLoading = false
           return
         }
@@ -293,29 +203,20 @@ export const useGraphStore = defineStore('graph', {
     computeDefaultLearningPath() {
       const sorted = [...this.nodes].sort((a, b) => (a.path_order ?? 99) - (b.path_order ?? 99))
       this.learningPath = sorted.map((n) => n.id)
-      this.learningPathSteps = sorted.map((n, idx) => ({
-        id: n.id,
-        name: n.name,
-        type: n.type,
-        step_index: idx + 1,
-        is_interchangeable: n.is_interchangeable || false,
-      }))
-      if (this.learningPath.length > 0) {
-        this.setPathIndex(0)
-      }
+      this.currentPathIndex = 0
     },
 
     generateMockGraph(_documentId: string, mode: 'research' | 'study') {
       if (mode === 'study') {
         // Study Mode Hierarchy (OSTEP book style - clean, spacious cartography)
         this.nodes = [
-          { id: 'sec-1-1', name: 'Process API', type: 'SECTION', description: 'Core system calls: fork(), exec(), and wait().', mention_count: 18, level: 4, path_order: 1, x: 580, y: 320, is_interchangeable: false },
-          { id: 'top-1-1-1', name: 'Fork Call', type: 'TOPIC', description: 'Creates a child process that is an almost exact clone of the caller.', mention_count: 14, level: 3, path_order: 2, x: 500, y: 520, is_interchangeable: true },
-          { id: 'top-1-1-2', name: 'Context Switch', type: 'TOPIC', description: 'Mechanism to save register state and restore another process.', mention_count: 16, level: 3, path_order: 3, x: 920, y: 360, is_interchangeable: true },
-          { id: 'chap-2', name: 'Concurrency', type: 'CHAPTER', description: 'Managing multi-threaded access to shared variables and critical sections.', mention_count: 22, level: 5, path_order: 4, x: 980, y: 580, is_interchangeable: false },
-          { id: 'sec-2-1', name: 'Locks & Mutexes', type: 'SECTION', description: 'Hardware and software primitives for mutual exclusion.', mention_count: 17, level: 4, path_order: 5, x: 1380, y: 400, is_interchangeable: false },
-          { id: 'top-2-1-1', name: 'Compare-And-Swap', type: 'TOPIC', description: 'Atomic hardware instruction utilized for building spinlocks.', mention_count: 12, level: 2, path_order: 6, x: 1280, y: 660, is_interchangeable: false },
-          { id: 'top-ext-paper', name: 'Amdahl Law', type: 'CONCEPT', description: 'Theoretical bound on parallel speedup (Cross-source link).', mention_count: 9, level: 2, path_order: 7, x: 940, y: 800, is_interchangeable: false },
+          { id: 'sec-1-1', name: 'Process API', type: 'SECTION', description: 'Core system calls: fork(), exec(), and wait().', mention_count: 18, level: 4, path_order: 1, x: 580, y: 320 },
+          { id: 'top-1-1-1', name: 'Fork Call', type: 'TOPIC', description: 'Creates a child process that is an almost exact clone of the caller.', mention_count: 14, level: 3, path_order: 2, x: 500, y: 520 },
+          { id: 'top-1-1-2', name: 'Context Switch', type: 'TOPIC', description: 'Mechanism to save register state and restore another process.', mention_count: 16, level: 3, path_order: 3, x: 920, y: 360 },
+          { id: 'chap-2', name: 'Concurrency', type: 'CHAPTER', description: 'Managing multi-threaded access to shared variables and critical sections.', mention_count: 22, level: 5, path_order: 4, x: 980, y: 580 },
+          { id: 'sec-2-1', name: 'Locks & Mutexes', type: 'SECTION', description: 'Hardware and software primitives for mutual exclusion.', mention_count: 17, level: 4, path_order: 5, x: 1380, y: 400 },
+          { id: 'top-2-1-1', name: 'Compare-And-Swap', type: 'TOPIC', description: 'Atomic hardware instruction utilized for building spinlocks.', mention_count: 12, level: 2, path_order: 6, x: 1280, y: 660 },
+          { id: 'top-ext-paper', name: 'Amdahl Law', type: 'CONCEPT', description: 'Theoretical bound on parallel speedup (Cross-source link).', mention_count: 9, level: 2, path_order: 7, x: 940, y: 800 },
         ]
         this.edges = [
           { id: 'e-1', source_id: 'sec-1-1', target_id: 'top-1-1-1', relation_type: 'HAS_TOPIC' },
@@ -330,25 +231,15 @@ export const useGraphStore = defineStore('graph', {
           { id: 'c-2', title: 'Chapter 2: Concurrency', entity_ids: ['chap-2', 'sec-2-1', 'top-2-1-1', 'top-ext-paper'], level: 2 },
         ]
         this.learningPath = ['sec-1-1', 'top-1-1-1', 'top-1-1-2', 'chap-2', 'sec-2-1', 'top-2-1-1', 'top-ext-paper']
-        this.learningPathSteps = this.learningPath.map((id, idx) => {
-          const n = this.nodes.find((item) => item.id === id)!
-          return {
-            id,
-            name: n.name,
-            type: n.type,
-            step_index: idx + 1,
-            is_interchangeable: n.is_interchangeable,
-          }
-        })
       } else {
         // Research Mode Graph (Attention Is All You Need - spacious page2 layout)
         this.nodes = [
-          { id: 'n-sdpa', name: 'Scaled Dot-Product', type: 'LOCATION', description: 'Core matrix attention equation: softmax(QK^T / sqrt(d_k))V.', mention_count: 28, level: 4, path_order: 1, x: 960, y: 680, is_interchangeable: false },
-          { id: 'n-attn', name: 'Multi-Head Attention', type: 'CONCEPT', description: 'Mechanism computing joint information across distinct representation subspaces.', mention_count: 38, level: 5, path_order: 2, x: 980, y: 440, is_interchangeable: false },
-          { id: 'n-pe', name: 'Positional Encoding', type: 'CONCEPT', description: 'Injected sine/cosine frequencies providing sequence order awareness.', mention_count: 18, level: 3, path_order: 3, x: 980, y: 220, is_interchangeable: true },
-          { id: 'n-vaswani', name: 'Ashish Vaswani', type: 'PERSON', description: 'Lead author of Attention Is All You Need, Google Brain.', mention_count: 14, level: 3, path_order: 4, x: 580, y: 460, is_interchangeable: true },
-          { id: 'n-brain', name: 'Google Brain', type: 'ORG', description: 'Deep learning research team where the Transformer was invented.', mention_count: 20, level: 4, path_order: 5, x: 1380, y: 420, is_interchangeable: true },
-          { id: 'n-bert', name: 'BERT Architecture', type: 'CONCEPT', description: 'Bidirectional encoder representations developed from transformers.', mention_count: 12, level: 2, path_order: 6, x: 1420, y: 640, is_interchangeable: false },
+          { id: 'n-attn', name: 'Multi-Head Attention', type: 'CONCEPT', description: 'Mechanism computing joint information across distinct representation subspaces.', mention_count: 38, level: 5, path_order: 2, x: 980, y: 440 },
+          { id: 'n-pe', name: 'Positional Encoding', type: 'CONCEPT', description: 'Injected sine/cosine frequencies providing sequence order awareness.', mention_count: 18, level: 3, path_order: 3, x: 980, y: 220 },
+          { id: 'n-vaswani', name: 'Ashish Vaswani', type: 'PERSON', description: 'Lead author of Attention Is All You Need, Google Brain.', mention_count: 14, level: 3, path_order: 4, x: 580, y: 460 },
+          { id: 'n-sdpa', name: 'Scaled Dot-Product', type: 'LOCATION', description: 'Core matrix attention equation: softmax(QK^T / sqrt(d_k))V.', mention_count: 28, level: 4, path_order: 1, x: 960, y: 680 },
+          { id: 'n-brain', name: 'Google Brain', type: 'ORG', description: 'Deep learning research team where the Transformer was invented.', mention_count: 20, level: 4, path_order: 5, x: 1380, y: 420 },
+          { id: 'n-bert', name: 'BERT Architecture', type: 'CONCEPT', description: 'Bidirectional encoder representations developed from transformers.', mention_count: 12, level: 2, path_order: 6, x: 1420, y: 640 },
         ]
         this.edges = [
           { id: 'e-1', source_id: 'n-sdpa', target_id: 'n-attn', relation_type: 'FOUNDATION_OF' },
@@ -362,21 +253,8 @@ export const useGraphStore = defineStore('graph', {
           { id: 'c-2', title: 'Research Genesis & Impact', entity_ids: ['n-vaswani', 'n-brain', 'n-bert'], level: 2 },
         ]
         this.learningPath = ['n-sdpa', 'n-attn', 'n-pe', 'n-vaswani', 'n-brain', 'n-bert']
-        this.learningPathSteps = this.learningPath.map((id, idx) => {
-          const n = this.nodes.find((item) => item.id === id)!
-          return {
-            id,
-            name: n.name,
-            type: n.type,
-            step_index: idx + 1,
-            is_interchangeable: n.is_interchangeable,
-          }
-        })
       }
-      // REQUIREMENT 2: Automatically select the first step when map opens
-      if (this.learningPath.length > 0) {
-        this.setPathIndex(0)
-      }
+      this.currentPathIndex = 0
     },
 
     selectEntity(entityId: string | null) {

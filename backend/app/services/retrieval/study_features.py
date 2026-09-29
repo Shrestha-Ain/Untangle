@@ -200,24 +200,15 @@ def get_learning_path(document_id: str) -> list[dict[str, Any]]:
         ORDER BY c.chapter_number, c.title, s.title, t.name, st.name
         """
         seen_topics: set[str] = set()
-        last_section_id: str | None = None
 
         with driver.session() as session:
             res = session.run(cypher, doc_id=document_id)
             for record in res:
-                s = record["s"]
                 t = record["t"]
                 st = record["st"]
 
                 if t and t["id"] not in seen_topics:
                     seen_topics.add(t["id"])
-                    # Sibling topics under the same section can be studied interchangeably
-                    curr_section_id = s["id"] if s else None
-                    is_interchangeable = bool(
-                        curr_section_id and curr_section_id == last_section_id
-                    )
-                    last_section_id = curr_section_id
-
                     steps.append(
                         {
                             "step_index": step_idx,
@@ -227,7 +218,6 @@ def get_learning_path(document_id: str) -> list[dict[str, Any]]:
                             "summary": t.get("summary", ""),
                             "needs_context": False,
                             "prerequisites": list(prior_topic_names[-2:]),  # Immediate prerequisites
-                            "is_interchangeable": is_interchangeable,
                         }
                     )
                     prior_topic_names.append(t.get("name", t["id"]))
@@ -243,7 +233,6 @@ def get_learning_path(document_id: str) -> list[dict[str, Any]]:
                             "summary": st.get("summary", ""),
                             "needs_context": st.get("needs_context", False),
                             "prerequisites": [t.get("name", t["id"])] if t else [],
-                            "is_interchangeable": False,
                         }
                     )
                     step_idx += 1

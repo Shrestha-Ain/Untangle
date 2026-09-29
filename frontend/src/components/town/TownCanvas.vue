@@ -14,7 +14,7 @@ const props = defineProps<{
 
 const svgRef = ref<SVGSVGElement | null>(null)
 const graphStore = useGraphStore()
-const { translateX, translateY, scale, onMouseDown, onWheel, zoomIn, zoomOut, recenter, focusOn } = usePanZoom()
+const { translateX, translateY, scale, onMouseDown, onWheel, zoomIn, zoomOut, recenter } = usePanZoom()
 const { layoutBuildings, layoutRoads, layoutDistricts } = useTownLayout()
 
 // Compute positioned elements
@@ -29,62 +29,33 @@ const buildings = computed(() => {
 const roads = computed(() => layoutRoads(graphStore.energyRoads, buildings.value))
 const districts = computed(() => layoutDistricts(graphStore.communities, buildings.value))
 
-// Compute Learning Path sequential segments with directional & interchangeable arrows
-const learningPathSegments = computed(() => {
+// Compute Learning Path sequential trail
+const learningPathTrail = computed(() => {
   if (!graphStore.isPathModeActive || graphStore.learningPath.length < 2) {
-    return []
+    return ''
   }
 
   const posMap = new Map(buildings.value.map((b) => [b.id, { x: b.x, y: b.y }]))
-  const segments = []
+  const points = graphStore.learningPath
+    .map((id) => posMap.get(id))
+    .filter((pos): pos is { x: number; y: number } => pos !== undefined)
 
-  for (let i = 0; i < graphStore.learningPath.length - 1; i++) {
-    const srcId = graphStore.learningPath[i]
-    const tgtId = graphStore.learningPath[i + 1]
-    const p1 = posMap.get(srcId)
-    const p2 = posMap.get(tgtId)
-    if (!p1 || !p2) continue
+  if (points.length < 2) return ''
 
-    const midX = (p1.x + p2.x) / 2
-    const midY = (p1.y + p2.y) / 2 - 35
-    const isInterchangeable = graphStore.isStepPairInterchangeable(srcId, tgtId)
-
-    segments.push({
-      id: `step-seg-${srcId}-${tgtId}-${i}`,
-      sourceId: srcId,
-      targetId: tgtId,
-      sourceStep: i + 1,
-      targetStep: i + 2,
-      isInterchangeable,
-      svgPath: `M ${p1.x},${p1.y} Q ${midX},${midY} ${p2.x},${p2.y}`,
-      midX,
-      midY,
-    })
+  let d = `M ${points[0].x},${points[0].y}`
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1]
+    const curr = points[i]
+    const midX = (prev.x + curr.x) / 2
+    const midY = (prev.y + curr.y) / 2 - 35
+    d += ` Q ${midX},${midY} ${curr.x},${curr.y}`
   }
-
-  return segments
+  return d
 })
 
 function onBuildingClick(id: string) {
   graphStore.selectEntity(id)
 }
-
-function focusOnNode(id: string) {
-  const b = buildings.value.find((item) => item.id === id)
-  if (b && b.x !== undefined && b.y !== undefined) {
-    focusOn(b.x, b.y, 1.05)
-  }
-}
-
-// Automatically navigate and focus canvas on selected step/node
-watch(
-  () => graphStore.selectedEntityId,
-  (newId) => {
-    if (newId) {
-      focusOnNode(newId)
-    }
-  }
-)
 
 // Watch highlighted subgraph from Regulus answers
 watch(
@@ -132,7 +103,6 @@ defineExpose({
   zoomIn,
   zoomOut,
   recenter,
-  focusOnNode,
 })
 </script>
 
@@ -191,45 +161,6 @@ defineExpose({
           <stop offset="50%" stop-color="#10B981" />
           <stop offset="100%" stop-color="#F59E0B" />
         </linearGradient>
-
-        <!-- Forward Arrowhead (Unidirectional: Lower step -> Higher step) -->
-        <marker
-          id="pathArrowHead"
-          viewBox="0 0 12 12"
-          refX="9"
-          refY="6"
-          markerWidth="7"
-          markerHeight="7"
-          orient="auto-start-reverse"
-        >
-          <path d="M 1 2 L 10 6 L 1 10 z" fill="#0D9488" stroke="#FFFFFF" stroke-width="0.8" />
-        </marker>
-
-        <!-- Backward Arrowhead (For interchangeable bidirectional steps) -->
-        <marker
-          id="pathArrowStart"
-          viewBox="0 0 12 12"
-          refX="3"
-          refY="6"
-          markerWidth="7"
-          markerHeight="7"
-          orient="auto"
-        >
-          <path d="M 11 2 L 2 6 L 11 10 z" fill="#F59E0B" stroke="#FFFFFF" stroke-width="0.8" />
-        </marker>
-
-        <!-- Forward Arrowhead (For interchangeable steps) -->
-        <marker
-          id="pathArrowEndInterchangeable"
-          viewBox="0 0 12 12"
-          refX="9"
-          refY="6"
-          markerWidth="7"
-          markerHeight="7"
-          orient="auto-start-reverse"
-        >
-          <path d="M 1 2 L 10 6 L 1 10 z" fill="#F59E0B" stroke="#FFFFFF" stroke-width="0.8" />
-        </marker>
       </defs>
 
       <!-- Beautiful Lush Ground Base -->
@@ -268,56 +199,29 @@ defineExpose({
         :target-pos="r.targetPos"
       />
 
-      <!-- SEQUENTIAL LEARNING PATH TRAIL (Directional & Interchangeable Arrows) -->
-      <g v-if="learningPathSegments.length > 0" class="pointer-events-none">
-        <g v-for="seg in learningPathSegments" :key="seg.id">
-          <!-- Outer glowing halo -->
-          <path
-            :d="seg.svgPath"
-            fill="none"
-            :stroke="seg.isInterchangeable ? '#FDE68A' : '#A7F3D0'"
-            stroke-width="12"
-            stroke-opacity="0.4"
-            stroke-linecap="round"
-          />
-
-          <!-- Main luminous directional stream with arrows -->
-          <path
-            :d="seg.svgPath"
-            fill="none"
-            :stroke="seg.isInterchangeable ? '#F59E0B' : '#0D9488'"
-            stroke-width="4.5"
-            stroke-linecap="round"
-            stroke-dasharray="10, 12"
-            class="energy-stream"
-            :marker-end="seg.isInterchangeable ? 'url(#pathArrowEndInterchangeable)' : 'url(#pathArrowHead)'"
-            :marker-start="seg.isInterchangeable ? 'url(#pathArrowStart)' : undefined"
-          />
-
-          <!-- Midpoint Indicator Pill (Unidirectional vs Interchangeable) -->
-          <g :transform="`translate(${seg.midX}, ${seg.midY})`">
-            <rect
-              :x="seg.isInterchangeable ? -32 : -28"
-              y="-10"
-              :width="seg.isInterchangeable ? 64 : 56"
-              height="20"
-              rx="10"
-              :fill="seg.isInterchangeable ? '#78350F' : '#134E4A'"
-              stroke="#FFFFFF"
-              stroke-width="1.2"
-              class="shadow-sm"
-            />
-            <text
-              x="0"
-              y="3.5"
-              text-anchor="middle"
-              fill="#FFFFFF"
-              class="text-[9px] font-mono font-extrabold tracking-wide select-none"
-            >
-              {{ seg.isInterchangeable ? '⇄ Flex' : `${seg.sourceStep} → ${seg.targetStep}` }}
-            </text>
-          </g>
-        </g>
+      <!-- SEQUENTIAL LEARNING PATH TRAIL (Illuminated Rainbow Guide) -->
+      <g v-if="learningPathTrail" class="pointer-events-none">
+        <!-- Trail glow halo -->
+        <path
+          :d="learningPathTrail"
+          fill="none"
+          stroke="#38BDF8"
+          stroke-width="12"
+          stroke-opacity="0.3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <!-- Luminous pulsing stream -->
+        <path
+          :d="learningPathTrail"
+          fill="none"
+          stroke="url(#pathTrailGrad)"
+          stroke-width="4.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-dasharray="10, 12"
+          class="energy-stream"
+        />
       </g>
 
 
