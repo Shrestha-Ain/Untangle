@@ -131,3 +131,46 @@ npm run build              # production build
 npm run preview            # preview production build locally
 npx vue-tsc --noEmit       # type-check without building
 ```
+
+---
+
+## Challenges Faced and How to Fix Them
+
+### 1. Clock Skew / Out-of-Sync System Clock Causing Clerk JWT Failures (`401 Unauthorized`)
+
+- **Symptom:**
+  - After signing in via Clerk (e.g., Google OAuth or email), the UI continues showing `"Local Dev"` badge or fails to connect to the backend.
+  - The backend logs `401 Unauthorized` on `GET /api/v1/auth/me` and other protected endpoints.
+  - Token verification fails with `Token has expired` or signature rejection even immediately after logging in.
+
+- **Root Cause:**
+  - JWT tokens issued by Clerk include standard timestamp claims (`iat` for "Issued At" and `exp` for "Expiration").
+  - If your local operating system clock drifts or is out of sync with internet standard time (NTP), `jwt.decode` on the backend validates the token timestamps against the local host machine's system time. A drifted clock causes immediate rejection of valid tokens.
+
+- **How to Fix:**
+  - **Windows:**
+    1. Open **Settings** &rarr; **Time & Language** &rarr; **Date & Time**.
+    2. Toggle **"Set time automatically"** to **On**.
+    3. Click the **"Sync now"** button under *Additional settings*.
+    4. Alternatively, open PowerShell as Administrator and run:
+       ```powershell
+       w32tm /resync
+       ```
+  - **macOS / Linux:**
+    - On macOS:
+      ```bash
+      sudo sntp -sS time.apple.com
+      ```
+    - On Linux:
+      ```bash
+      sudo systemctl restart systemd-timesyncd
+      # or
+      sudo chronyd -q 'server pool.ntp.org iburst'
+      ```
+  - After re-synchronizing your system clock, hard refresh the browser (`Ctrl+Shift+R` or `Cmd+Shift+R`) and sign in again.
+
+### 2. Google OAuth JWT `at_hash` Validation
+
+- **Symptom:** Backend returns `401 Unauthorized` with `Invalid token: No access_token provided` during token decoding for users signing in through Google.
+- **Root Cause:** Tokens issued via Google OAuth include an `at_hash` (access token hash) claim. By default, `python-jose` expects an `access_token` parameter when `verify_at_hash` is enabled.
+- **How to Fix:** In `backend/app/core/security.py`, pass `"verify_at_hash": False` in the `jwt.decode()` options.
