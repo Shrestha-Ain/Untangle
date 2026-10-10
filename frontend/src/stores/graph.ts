@@ -188,6 +188,14 @@ export const useGraphStore = defineStore('graph', {
             // Compute fallback learning path from nodes sorted by path_order
             this.computeDefaultLearningPath()
           }
+
+          // Auto-select step 1 when graph data is loaded
+          if (this.learningPath.length > 0) {
+            this.setPathIndex(0)
+          } else if (this.nodes.length > 0) {
+            this.selectEntity(this.nodes[0].id)
+          }
+
           this.isLoading = false
           return
         }
@@ -203,7 +211,9 @@ export const useGraphStore = defineStore('graph', {
     computeDefaultLearningPath() {
       const sorted = [...this.nodes].sort((a, b) => (a.path_order ?? 99) - (b.path_order ?? 99))
       this.learningPath = sorted.map((n) => n.id)
-      this.currentPathIndex = 0
+      if (this.learningPath.length > 0) {
+        this.setPathIndex(0)
+      }
     },
 
     generateMockGraph(_documentId: string, mode: 'research' | 'study') {
@@ -254,7 +264,9 @@ export const useGraphStore = defineStore('graph', {
         ]
         this.learningPath = ['n-sdpa', 'n-attn', 'n-pe', 'n-vaswani', 'n-brain', 'n-bert']
       }
-      this.currentPathIndex = 0
+      if (this.learningPath.length > 0) {
+        this.setPathIndex(0)
+      }
     },
 
     selectEntity(entityId: string | null) {

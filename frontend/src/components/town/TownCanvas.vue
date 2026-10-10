@@ -14,7 +14,7 @@ const props = defineProps<{
 
 const svgRef = ref<SVGSVGElement | null>(null)
 const graphStore = useGraphStore()
-const { translateX, translateY, scale, onMouseDown, onWheel, zoomIn, zoomOut, recenter } = usePanZoom()
+const { translateX, translateY, scale, onMouseDown, onWheel, zoomIn, zoomOut, recenter, focusOn } = usePanZoom()
 const { layoutBuildings, layoutRoads, layoutDistricts } = useTownLayout()
 
 // Compute positioned elements
@@ -99,10 +99,28 @@ watch(
   { deep: true }
 )
 
+function focusOnNode(id: string) {
+  const b = buildings.value.find((item) => item.id === id)
+  if (b && b.x !== undefined && b.y !== undefined) {
+    focusOn(b.x, b.y, 1.05)
+  }
+}
+
+// Automatically navigate and focus canvas on selected step / building
+watch(
+  () => graphStore.selectedEntityId,
+  (newId) => {
+    if (newId) {
+      focusOnNode(newId)
+    }
+  }
+)
+
 defineExpose({
   zoomIn,
   zoomOut,
   recenter,
+  focusOnNode,
 })
 </script>
 
