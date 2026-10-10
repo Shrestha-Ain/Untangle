@@ -5,7 +5,7 @@ export function usePanZoom() {
   const translateY = ref(-160)
   const scale = ref(1)
 
-  let isDragging = false
+  const isDragging = ref(false)
   let startX = 0
   let startY = 0
 
@@ -15,7 +15,7 @@ export function usePanZoom() {
       return
     }
 
-    isDragging = true
+    isDragging.value = true
     startX = e.clientX - translateX.value
     startY = e.clientY - translateY.value
 
@@ -24,13 +24,13 @@ export function usePanZoom() {
   }
 
   function onMouseMove(e: MouseEvent) {
-    if (!isDragging) return
+    if (!isDragging.value) return
     translateX.value = e.clientX - startX
     translateY.value = e.clientY - startY
   }
 
   function onMouseUp() {
-    isDragging = false
+    isDragging.value = false
     window.removeEventListener('mousemove', onMouseMove)
     window.removeEventListener('mouseup', onMouseUp)
   }
@@ -73,6 +73,7 @@ export function usePanZoom() {
     translateX,
     translateY,
     scale,
+    isDragging,
     onMouseDown,
     onWheel,
     zoomIn,

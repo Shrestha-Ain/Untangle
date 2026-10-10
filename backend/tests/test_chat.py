@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_current_active_user
+from app.api.deps import get_current_active_user, get_current_user_optional
 from app.main import app
 from app.models.document import Document
 from app.models.user import User
@@ -35,6 +35,7 @@ def override_get_current_active_user():
 @pytest.fixture(autouse=True)
 def setup_test_data():
     app.dependency_overrides[get_current_active_user] = override_get_current_active_user
+    app.dependency_overrides[get_current_user_optional] = override_get_current_active_user
     db = TestingSessionLocal()
     db.merge(test_user)
 
@@ -53,6 +54,7 @@ def setup_test_data():
     db.close()
     yield
     app.dependency_overrides.pop(get_current_active_user, None)
+    app.dependency_overrides.pop(get_current_user_optional, None)
 
 
 @pytest.fixture
@@ -182,3 +184,48 @@ def test_api_send_message_sync(client):
         assert body["role"] == "assistant"
         assert "[Chunk 0]" in body["content"]
         assert len(body["citations"]) >= 1
+
+
+def test_api_query_document_direct(client):
+    """POST /api/v1/chat/sessions/{document_id}/query executes direct conversational query."""
+    with patch("app.services.chat_service.get_chat_model") as mock_model, patch(
+        "app.services.chat_service.execute_local_search"
+    ) as mock_local:
+        from app.services.retrieval.local_search import LocalSearchResult
+
+        mock_local.return_value = LocalSearchResult(
+            seed_entities=[],
+            subgraph_nodes=[
+                {
+                    "id": "Transformer",
+                    "name": "Transformer",
+                    "type": "ARCHITECTURE",
+                    "description": "Self-attention model",
+                }
+            ],
+            subgraph_edges=[],
+            text_chunks=[
+                {
+                    "chunk_index": 0,
+                    "text": "The Transformer is the first transduction model relying entirely on self-attention.",
+                    "score": 0.95,
+                }
+            ],
+        )
+
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value.content = (
+            "The Transformer relies entirely on self-attention [Chunk 0]."
+        )
+        mock_model.return_value = mock_llm
+
+        resp = client.post(
+            f"/api/v1/chat/sessions/{test_doc_id}/query",
+            json={"query": "What is the Transformer architecture?"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "answer" in data
+        assert "citations" in data
+        assert "subgraph" in data
+        assert "Transformer" in data["subgraph"]["nodeIds"]

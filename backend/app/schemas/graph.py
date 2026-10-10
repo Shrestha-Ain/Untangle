@@ -120,6 +120,7 @@ class LearningPathStep(BaseModel):
     summary: str = ""
     needs_context: bool = False
     prerequisites: list[str] = Field(default_factory=list)
+    is_interchangeable: bool = False
 
 
 class LearningPathResponse(BaseModel):

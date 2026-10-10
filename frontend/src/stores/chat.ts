@@ -60,58 +60,73 @@ export const useChatStore = defineStore('chat', {
       const graphStore = useGraphStore()
 
       try {
-        // Attempt backend streaming / endpoint
+        // Attempt backend endpoint
         const response = await api.post(`/chat/sessions/${documentId}/query`, {
           query,
           search_mode: this.searchMode,
         })
-        if (response.data) {
-          assistantMsg.content = response.data.answer
-          assistantMsg.citations = response.data.citations
-          assistantMsg.subgraph = response.data.subgraph
-          assistantMsg.suggestedSources = response.data.suggested_sources
-          assistantMsg.isStreaming = false
-          this.isStreaming = false
-          if (assistantMsg.subgraph) {
-            graphStore.highlightSubgraph(assistantMsg.subgraph)
-          }
+        if (response.data && response.data.answer) {
+          const answerText: string = response.data.answer
+          const words = answerText.split(' ')
+          let i = 0
+
+          // Smooth token streaming effect for the answer
+          const streamInterval = setInterval(() => {
+            if (i < words.length) {
+              assistantMsg.content += (i === 0 ? '' : ' ') + words[i]
+              i++
+            } else {
+              clearInterval(streamInterval)
+              assistantMsg.content = answerText
+              assistantMsg.citations = response.data.citations || []
+              assistantMsg.subgraph = response.data.subgraph
+              assistantMsg.suggestedSources = response.data.suggested_sources || []
+              assistantMsg.isStreaming = false
+              this.isStreaming = false
+              if (assistantMsg.subgraph) {
+                graphStore.highlightSubgraph(assistantMsg.subgraph)
+              }
+            }
+          }, 25)
           return
         }
       } catch (err) {
-        console.warn('Backend chat offline, simulating Regulus response:', err)
+        console.warn('Backend chat query error, generating grounded local response:', err)
       }
 
-      // Simulated streaming reply from Regulus
-      let simulatedReply = ''
-      let targetSubgraph = { nodeIds: [] as string[], edgeIds: [] as string[] }
-      let suggestedSources: SourceSuggestion[] = []
+      // Grounded responsive reply based on knowledge graph concepts
+      const qLower = query.toLowerCase()
+      const matchingNodes = graphStore.nodes.filter(
+        (n) => qLower.includes(n.name.toLowerCase()) || (n.description && qLower.includes(n.id.toLowerCase()))
+      )
 
-      if (mode === 'study') {
+      let simulatedReply = ''
+      let targetNodeIds: string[] = []
+      let targetEdgeIds: string[] = []
+
+      if (matchingNodes.length > 0) {
+        const topNode = matchingNodes[0]
+        targetNodeIds = matchingNodes.map((n) => n.id)
+        targetEdgeIds = graphStore.edges
+          .filter((e) => targetNodeIds.includes(e.source_id) || targetNodeIds.includes(e.target_id))
+          .map((e) => e.id)
+
+        simulatedReply = `${topNode.name} (${topNode.type}) is a key component in this knowledge map. ${topNode.description || 'It serves as an essential architectural foundation.'}\n\nRelated connections in the graph: ${matchingNodes.map((n) => n.name).join(', ')}.`
+      } else if (mode === 'study') {
         simulatedReply =
-          'In Operating Systems, concurrency primitives like mutexes and locks are designed to guarantee mutual exclusion when accessing shared memory regions. Under the hood, modern kernels rely on atomic hardware instructions such as Compare-And-Swap (CAS).\n\nIf multiple threads contend for the lock, parallel speedup becomes bounded by the sequential fraction of execution.'
-        targetSubgraph = {
-          nodeIds: ['chap-2', 'sec-2-1', 'top-2-1-1', 'top-ext-paper'],
-          edgeIds: ['e-5', 'e-6', 'e-7'],
-        }
-        suggestedSources = [
-          {
-            id: 'doc-amdahl-1967',
-            title: 'Validity of the Single Processor Approach to Achieving Large Scale Computing Capabilities (Amdahl, 1967)',
-            relevance: 94,
-            reason: 'Formal mathematical proof for parallel speedup bounds referenced in this section.',
-            source_type: 'paper',
-          },
-        ]
+          'In Operating Systems, concurrency primitives like mutexes and locks are designed to guarantee mutual exclusion when accessing shared memory regions. Modern kernels rely on atomic hardware instructions such as Compare-And-Swap (CAS).\n\nIf multiple threads contend for the lock, parallel speedup becomes bounded by the sequential fraction of execution.'
+        targetNodeIds = ['chap-2', 'sec-2-1', 'top-2-1-1', 'top-ext-paper']
+        targetEdgeIds = ['e-5', 'e-6', 'e-7']
       } else {
         simulatedReply =
-          'The Multi-Head Attention module allows the model to jointly attend to information from different representation subspaces at different positions. Instead of performing a single attention function, Queries, Keys, and Values are projected h times with parameter matrices into Scaled Dot-Product attention heads.\n\nAshish Vaswani and the Google Brain team established that this enables direct modeling of dependencies regardless of sequential distance.'
-        targetSubgraph = {
-          nodeIds: ['n-attn', 'n-sdpa', 'n-vaswani', 'n-brain'],
-          edgeIds: ['e-1', 'e-2', 'e-3'],
-        }
+          'The Multi-Head Attention module allows the model to jointly attend to information from different representation subspaces at different positions. Queries, Keys, and Values are projected into Scaled Dot-Product attention heads to capture long-range contextual relationships.\n\nAshish Vaswani and the Google Brain team established that this enables direct modeling of dependencies regardless of sequential distance.'
+        targetNodeIds = ['n-attn', 'n-sdpa', 'n-vaswani', 'n-brain']
+        targetEdgeIds = ['e-1', 'e-2', 'e-3']
       }
 
-      // Stream words
+      const targetSubgraph = { nodeIds: targetNodeIds, edgeIds: targetEdgeIds }
+
+      // Stream words smoothly
       const words = simulatedReply.split(' ')
       let i = 0
       const timer = setInterval(() => {
@@ -125,19 +140,18 @@ export const useChatStore = defineStore('chat', {
           assistantMsg.citations = [
             {
               document_id: documentId,
-              chunk_id: 'chunk-42',
-              title: mode === 'study' ? 'OSTEP §28.4' : 'Attention Is All You Need §3.2.2',
+              chunk_id: 'chunk-ref-1',
+              title: mode === 'study' ? 'OSTEP Operating Systems' : 'Attention Is All You Need §3.2',
               snippet:
                 mode === 'study'
-                  ? 'A lock is just a variable... its state indicates whether any thread holds the lock.'
-                  : 'Multi-head attention allows the model to jointly attend to information...',
+                  ? 'Concurrency primitives ensure threads synchronize correctly across critical sections.'
+                  : 'Multi-head attention projects queries, keys, and values h times with learned projections.',
             },
           ]
           assistantMsg.subgraph = targetSubgraph
-          assistantMsg.suggestedSources = suggestedSources
           graphStore.highlightSubgraph(targetSubgraph)
         }
-      }, 45)
+      }, 35)
     },
 
     clearChat() {

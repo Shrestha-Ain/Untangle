@@ -20,6 +20,7 @@ from app.services import user_service
 
 # HTTPBearer extracts the token from "Authorization: Bearer <token>"
 _bearer_scheme = HTTPBearer(auto_error=True)
+_bearer_scheme_optional = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
@@ -67,3 +68,23 @@ def get_current_active_user(
             detail="User account is deactivated",
         )
     return user
+
+
+def get_current_user_optional(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme_optional)],
+    db: Annotated[Session, Depends(get_db)],
+) -> User | None:
+    """
+    Optional authentication dependency for explorer / public endpoints.
+    Returns User if valid Bearer token provided, None otherwise.
+    """
+    if not credentials:
+        return None
+    token = credentials.credentials
+    try:
+        claims = verify_clerk_token(token)
+        user = user_service.get_or_create_from_clerk_claims(db, claims)
+        return user if user.is_active else None
+    except Exception:
+        return None
+

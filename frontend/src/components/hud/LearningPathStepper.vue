@@ -7,6 +7,7 @@ const graphStore = useGraphStore()
 const totalSteps = computed(() => graphStore.learningPath.length)
 const currentStepNum = computed(() => graphStore.currentPathIndex + 1)
 const currentNode = computed(() => graphStore.currentPathNode)
+const isCurrentInterchangeable = computed(() => graphStore.currentStepIsInterchangeable)
 
 const canPrev = computed(() => graphStore.currentPathIndex > 0)
 const canNext = computed(() => graphStore.currentPathIndex < totalSteps.value - 1)
@@ -102,6 +103,21 @@ onBeforeUnmount(() => {
           </span>
 
           <span
+            v-if="isCurrentInterchangeable"
+            class="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
+            title="This step can be studied interchangeably with adjacent topics"
+          >
+            ⇄ Interchangeable
+          </span>
+          <span
+            v-else
+            class="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200"
+            title="Prerequisite-ordered step (unidirectional)"
+          >
+            → Sequential
+          </span>
+
+          <span
             v-if="currentNode?.type"
             class="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200"
           >
@@ -167,7 +183,7 @@ onBeforeUnmount(() => {
         ></div>
       </div>
 
-      <!-- Interactive Step Milestone Bubbles -->
+      <!-- Interactive Step Milestone Bubbles & Directional Arrows -->
       <div class="relative -mt-3.5 flex items-center justify-between w-full">
         <template v-for="(stepId, idx) in graphStore.learningPath" :key="stepId">
           <!-- Step Node Button -->
@@ -186,6 +202,26 @@ onBeforeUnmount(() => {
             <span v-if="idx < graphStore.currentPathIndex" class="material-symbols-outlined text-xs">check</span>
             <span v-else>{{ idx + 1 }}</span>
           </button>
+
+          <!-- Inter-step directional indicator between milestones -->
+          <span
+            v-if="idx < totalSteps - 1"
+            class="flex-1 text-center text-[10px] font-bold select-none pointer-events-none transition-colors px-0.5"
+            :class="[
+              graphStore.isStepPairInterchangeable(stepId, graphStore.learningPath[idx + 1])
+                ? 'text-amber-500'
+                : idx < graphStore.currentPathIndex
+                  ? 'text-emerald-500'
+                  : 'text-slate-400'
+            ]"
+            :title="
+              graphStore.isStepPairInterchangeable(stepId, graphStore.learningPath[idx + 1])
+                ? `Steps ${idx + 1} and ${idx + 2} are interchangeable (flexible order)`
+                : `Step ${idx + 1} → Step ${idx + 2} (unidirectional)`
+            "
+          >
+            {{ graphStore.isStepPairInterchangeable(stepId, graphStore.learningPath[idx + 1]) ? '⇄' : '→' }}
+          </span>
         </template>
       </div>
 

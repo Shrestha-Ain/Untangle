@@ -14,7 +14,7 @@ const props = defineProps<{
 
 const svgRef = ref<SVGSVGElement | null>(null)
 const graphStore = useGraphStore()
-const { translateX, translateY, scale, onMouseDown, onWheel, zoomIn, zoomOut, recenter, focusOn } = usePanZoom()
+const { translateX, translateY, scale, isDragging, onMouseDown, onWheel, zoomIn, zoomOut, recenter, focusOn } = usePanZoom()
 const { layoutBuildings, layoutRoads, layoutDistricts } = useTownLayout()
 
 // Compute positioned elements
@@ -29,28 +29,76 @@ const buildings = computed(() => {
 const roads = computed(() => layoutRoads(graphStore.energyRoads, buildings.value))
 const districts = computed(() => layoutDistricts(graphStore.communities, buildings.value))
 
-// Compute Learning Path sequential trail
-const learningPathTrail = computed(() => {
+export interface LearningPathSegment {
+  id: string
+  sourceId: string
+  targetId: string
+  sourceStep: number
+  targetStep: number
+  pathD: string
+  midX: number
+  midY: number
+  isInterchangeable: boolean
+  isCurrent: boolean
+}
+
+// Compute Learning Path sequential directional segments (Unidirectional vs. Interchangeable)
+const learningPathSegments = computed<LearningPathSegment[]>(() => {
   if (!graphStore.isPathModeActive || graphStore.learningPath.length < 2) {
-    return ''
+    return []
   }
 
   const posMap = new Map(buildings.value.map((b) => [b.id, { x: b.x, y: b.y }]))
-  const points = graphStore.learningPath
-    .map((id) => posMap.get(id))
-    .filter((pos): pos is { x: number; y: number } => pos !== undefined)
+  const segs: LearningPathSegment[] = []
 
-  if (points.length < 2) return ''
+  for (let i = 0; i < graphStore.learningPath.length - 1; i++) {
+    const srcId = graphStore.learningPath[i]
+    const tgtId = graphStore.learningPath[i + 1]
+    const p1 = posMap.get(srcId)
+    const p2 = posMap.get(tgtId)
 
-  let d = `M ${points[0].x},${points[0].y}`
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1]
-    const curr = points[i]
-    const midX = (prev.x + curr.x) / 2
-    const midY = (prev.y + curr.y) / 2 - 35
-    d += ` Q ${midX},${midY} ${curr.x},${curr.y}`
+    if (!p1 || !p2) continue
+
+    const dx = p2.x - p1.x
+    const dy = p2.y - p1.y
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1
+    const nx = dx / dist
+    const ny = dy / dist
+
+    // Trim endpoints so arrowheads don't collide or hide under building bases
+    const startX = Math.round(p1.x + nx * 32)
+    const startY = Math.round(p1.y + ny * 32)
+    const endX = Math.round(p2.x - nx * 36)
+    const endY = Math.round(p2.y - ny * 36)
+
+    // Gentle curved path arc
+    const ctrlX = Math.round((p1.x + p2.x) / 2 - ny * 32)
+    const ctrlY = Math.round((p1.y + p2.y) / 2 + nx * 32 - 28)
+
+    const pathD = `M ${startX},${startY} Q ${ctrlX},${ctrlY} ${endX},${endY}`
+
+    // Midpoint of quadratic Bezier at t=0.5
+    const midX = Math.round(0.25 * startX + 0.5 * ctrlX + 0.25 * endX)
+    const midY = Math.round(0.25 * startY + 0.5 * ctrlY + 0.25 * endY)
+
+    const isInterchangeable = graphStore.isStepPairInterchangeable(srcId, tgtId)
+    const isCurrent = graphStore.currentPathIndex === i || graphStore.currentPathIndex === i + 1
+
+    segs.push({
+      id: `${srcId}->${tgtId}`,
+      sourceId: srcId,
+      targetId: tgtId,
+      sourceStep: i + 1,
+      targetStep: i + 2,
+      pathD,
+      midX,
+      midY,
+      isInterchangeable,
+      isCurrent,
+    })
   }
-  return d
+
+  return segs
 })
 
 function onBuildingClick(id: string) {
@@ -113,7 +161,8 @@ watch(
     if (newId) {
       focusOnNode(newId)
     }
-  }
+  },
+  { immediate: true }
 )
 
 defineExpose({
@@ -138,7 +187,8 @@ defineExpose({
 
     <svg
       ref="svgRef"
-      class="w-[2048px] h-[1400px] transform-gpu transition-transform duration-75"
+      class="w-[2048px] h-[1400px] transform-gpu transition-transform"
+      :class="isDragging ? 'duration-0' : 'duration-300 ease-out'"
       :style="{ transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})` }"
       viewBox="0 0 2048 1400"
     >
@@ -148,6 +198,45 @@ defineExpose({
           <feGaussianBlur stdDeviation="8" result="glow" />
           <feComposite in="SourceGraphic" in2="glow" operator="over" />
         </filter>
+
+        <!-- Unidirectional Forward Arrowhead (lower to higher step) -->
+        <marker
+          id="pathArrowEnd"
+          viewBox="0 0 14 14"
+          refX="11"
+          refY="7"
+          markerWidth="8"
+          markerHeight="8"
+          orient="auto"
+        >
+          <path d="M 2 2 L 12 7 L 2 12 L 5 7 Z" fill="#0D9488" stroke="#FFFFFF" stroke-width="0.8" />
+        </marker>
+
+        <!-- Interchangeable Forward Arrowhead -->
+        <marker
+          id="pathArrowInterchangeableEnd"
+          viewBox="0 0 14 14"
+          refX="11"
+          refY="7"
+          markerWidth="8"
+          markerHeight="8"
+          orient="auto"
+        >
+          <path d="M 2 2 L 12 7 L 2 12 L 5 7 Z" fill="#F59E0B" stroke="#FFFFFF" stroke-width="0.8" />
+        </marker>
+
+        <!-- Interchangeable Backward Arrowhead (reverse at start) -->
+        <marker
+          id="pathArrowInterchangeableStart"
+          viewBox="0 0 14 14"
+          refX="3"
+          refY="7"
+          markerWidth="8"
+          markerHeight="8"
+          orient="auto"
+        >
+          <path d="M 12 2 L 2 7 L 12 12 L 9 7 Z" fill="#F59E0B" stroke="#FFFFFF" stroke-width="0.8" />
+        </marker>
 
         <!-- Lush Grass Linear Gradient -->
         <linearGradient id="grassGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -217,29 +306,56 @@ defineExpose({
         :target-pos="r.targetPos"
       />
 
-      <!-- SEQUENTIAL LEARNING PATH TRAIL (Illuminated Rainbow Guide) -->
-      <g v-if="learningPathTrail" class="pointer-events-none">
-        <!-- Trail glow halo -->
-        <path
-          :d="learningPathTrail"
-          fill="none"
-          stroke="#38BDF8"
-          stroke-width="12"
-          stroke-opacity="0.3"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-        <!-- Luminous pulsing stream -->
-        <path
-          :d="learningPathTrail"
-          fill="none"
-          stroke="url(#pathTrailGrad)"
-          stroke-width="4.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-dasharray="10, 12"
-          class="energy-stream"
-        />
+      <!-- SEQUENTIAL LEARNING PATH TRAIL (Directional Arrows: Unidirectional vs. Interchangeable) -->
+      <g v-if="learningPathSegments.length > 0" class="pointer-events-none">
+        <g v-for="seg in learningPathSegments" :key="seg.id">
+          <!-- Outer glow halo -->
+          <path
+            :d="seg.pathD"
+            fill="none"
+            :stroke="seg.isInterchangeable ? '#F59E0B' : '#38BDF8'"
+            :stroke-width="seg.isCurrent ? 14 : 9"
+            :stroke-opacity="seg.isCurrent ? 0.35 : 0.18"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+
+          <!-- Luminous animated stream with directional markers -->
+          <path
+            :d="seg.pathD"
+            fill="none"
+            :stroke="seg.isInterchangeable ? '#F59E0B' : '#0D9488'"
+            :stroke-width="seg.isCurrent ? 5 : 3.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="energy-stream"
+            :marker-end="seg.isInterchangeable ? 'url(#pathArrowInterchangeableEnd)' : 'url(#pathArrowEnd)'"
+            :marker-start="seg.isInterchangeable ? 'url(#pathArrowInterchangeableStart)' : undefined"
+          />
+
+          <!-- Midpoint Indicator Badge -->
+          <g :transform="`translate(${seg.midX}, ${seg.midY})`">
+            <rect
+              :x="seg.isInterchangeable ? -48 : -38"
+              y="-10"
+              :width="seg.isInterchangeable ? 96 : 76"
+              height="20"
+              rx="10"
+              :fill="seg.isInterchangeable ? '#78350F' : '#042F2E'"
+              :stroke="seg.isInterchangeable ? '#F59E0B' : '#0D9488'"
+              stroke-width="1.2"
+              class="shadow-md"
+            />
+            <text
+              x="0"
+              y="3.5"
+              text-anchor="middle"
+              class="text-[9px] font-mono font-bold fill-white tracking-wider uppercase select-none"
+            >
+              {{ seg.isInterchangeable ? `⇄ ${seg.sourceStep} & ${seg.targetStep} Flex` : `Step ${seg.sourceStep} → ${seg.targetStep}` }}
+            </text>
+          </g>
+        </g>
       </g>
 
 

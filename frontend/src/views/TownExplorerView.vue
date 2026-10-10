@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents'
 import { useGraphStore } from '@/stores/graph'
@@ -35,19 +35,36 @@ const mode = computed<'research' | 'study'>(() => {
   return currentDoc.value?.source_mode ?? 'research'
 })
 
+async function initializeMap(docId: string, currentMode: 'research' | 'study') {
+  await graphStore.loadGraph(docId, currentMode)
+  if (graphStore.learningPath.length > 0) {
+    graphStore.setPathIndex(0)
+    setTimeout(() => {
+      canvasRef.value?.focusOnNode(graphStore.learningPath[0])
+    }, 80)
+  } else if (graphStore.nodes.length > 0) {
+    graphStore.selectEntity(graphStore.nodes[0].id)
+    setTimeout(() => {
+      canvasRef.value?.focusOnNode(graphStore.nodes[0].id)
+    }, 80)
+  }
+}
+
 onMounted(async () => {
   if (documentsStore.documents.length === 0) {
     await documentsStore.fetchDocuments()
   }
-  await graphStore.loadGraph(documentId.value, mode.value)
-  if (graphStore.learningPath.length > 0) {
-    graphStore.setPathIndex(0)
-    canvasRef.value?.focusOnNode(graphStore.learningPath[0])
-  } else if (graphStore.nodes.length > 0) {
-    graphStore.selectEntity(graphStore.nodes[0].id)
-    canvasRef.value?.focusOnNode(graphStore.nodes[0].id)
-  }
+  await initializeMap(documentId.value, mode.value)
 })
+
+watch(
+  () => route.params.documentId,
+  async (newDocId: string | string[] | undefined) => {
+    if (newDocId && typeof newDocId === 'string') {
+      await initializeMap(newDocId, mode.value)
+    }
+  }
+)
 
 function handleZoomIn() {
   canvasRef.value?.zoomIn()
