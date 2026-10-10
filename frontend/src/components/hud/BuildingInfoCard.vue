@@ -109,6 +109,29 @@ function exploreConnections() {
   graphStore.highlightSubgraph({ nodeIds: neighborIds, edgeIds })
 }
 
+const stepInfo = computed(() => {
+  if (!entity.value) return null
+  const idx = graphStore.learningPath.indexOf(entity.value.id)
+  if (idx === -1) return null
+
+  const prevId = idx > 0 ? graphStore.learningPath[idx - 1] : null
+  const nextId = idx < graphStore.learningPath.length - 1 ? graphStore.learningPath[idx + 1] : null
+
+  const prevNode = prevId ? graphStore.nodes.find((n) => n.id === prevId) : null
+  const nextNode = nextId ? graphStore.nodes.find((n) => n.id === nextId) : null
+
+  const isInterchangeable =
+    (prevId && graphStore.isStepPairInterchangeable(prevId, entity.value.id)) ||
+    (nextId && graphStore.isStepPairInterchangeable(entity.value.id, nextId))
+
+  return {
+    currentStepIndex: idx,
+    prevNode,
+    nextNode,
+    isInterchangeable,
+  }
+})
+
 function findExternalReferences() {
   if (!entity.value) return
   window.alert(
@@ -170,6 +193,53 @@ function findExternalReferences() {
       <div class="bg-slate-50 rounded-2xl p-2.5 text-center border border-slate-100">
         <div class="text-[10px] font-bold text-slate-400 uppercase">Connections</div>
         <div class="font-mono font-bold text-[#D97706] text-base">{{ connectedRoadsCount }}</div>
+      </div>
+    </div>
+
+    <!-- Sequential Step & Prerequisite Flow -->
+    <div v-if="stepInfo" class="p-3 bg-gradient-to-br from-teal-50/90 to-emerald-50/90 rounded-2xl border border-teal-200/80 space-y-2 text-xs shadow-xs">
+      <div class="flex items-center justify-between text-[11px] font-bold">
+        <span class="text-teal-900 flex items-center gap-1 font-mono">
+          <span class="material-symbols-outlined text-sm text-teal-700">alt_route</span>
+          Sequence Position
+        </span>
+        <span class="font-mono text-teal-800 bg-teal-100/90 px-2 py-0.5 rounded-full text-[10px] font-extrabold">
+          Step {{ stepInfo.currentStepIndex + 1 }} of {{ graphStore.learningPath.length }}
+        </span>
+      </div>
+
+      <!-- Before / Prerequisite -->
+      <div class="flex items-center justify-between gap-1 text-[11px]">
+        <span class="text-slate-500 font-medium">⬅ Preceding:</span>
+        <button
+          v-if="stepInfo.prevNode"
+          @click="graphStore.selectEntity(stepInfo.prevNode.id)"
+          class="font-mono font-bold text-teal-700 hover:text-teal-900 underline truncate max-w-[150px] text-right"
+          :title="`Jump to preceding step: ${stepInfo.prevNode.name}`"
+        >
+          {{ stepInfo.prevNode.name }}
+        </button>
+        <span v-else class="text-slate-400 font-mono text-[10px] italic">First Step (Foundation)</span>
+      </div>
+
+      <!-- After / Next Step -->
+      <div class="flex items-center justify-between gap-1 text-[11px]">
+        <span class="text-slate-500 font-medium">➡ Next Up:</span>
+        <button
+          v-if="stepInfo.nextNode"
+          @click="graphStore.selectEntity(stepInfo.nextNode.id)"
+          class="font-mono font-bold text-teal-700 hover:text-teal-900 underline truncate max-w-[150px] text-right"
+          :title="`Jump to next step: ${stepInfo.nextNode.name}`"
+        >
+          {{ stepInfo.nextNode.name }}
+        </button>
+        <span v-else class="text-slate-400 font-mono text-[10px] italic">Final Milestone (Apex)</span>
+      </div>
+
+      <!-- Interchangeability Badge if applicable -->
+      <div v-if="stepInfo.isInterchangeable" class="text-[10px] font-mono text-amber-800 bg-amber-100/90 p-1.5 rounded-xl border border-amber-200 flex items-center gap-1">
+        <span class="material-symbols-outlined text-xs text-amber-700">sync_alt</span>
+        <span>Flexible Order: Sibling concept without strict prerequisite.</span>
       </div>
     </div>
 

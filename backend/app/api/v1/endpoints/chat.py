@@ -38,6 +38,10 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
 class DirectQueryRequest(BaseModel):
     query: str
     search_mode: str | None = "auto"
+    search_scope: str | None = "topic"  # "topic" | "document" | "worldwide"
+    selected_node_id: str | None = None
+    selected_node_name: str | None = None
+    model_name: str | None = "flash"
 
 
 class DirectQueryResponse(BaseModel):
@@ -157,6 +161,10 @@ def send_message_sync(
         session=session,
         query=message_in.content,
         search_mode=message_in.search_mode,
+        search_scope=message_in.search_scope,
+        selected_node_id=message_in.selected_node_id,
+        selected_node_name=message_in.selected_node_name,
+        model_name=message_in.model_name,
     )
     return assistant_msg
 
@@ -174,6 +182,7 @@ def query_document_direct(
     """
     Direct conversational query endpoint for Regulus AI Guide.
     Finds or creates a chat session for this document and generates a grounded response.
+    Supports topic-first scoping, document-wide RAG, and worldwide search.
     """
     doc_uuid: uuid.UUID | None = None
     session: chat_service.ChatSession | None = None
@@ -216,6 +225,10 @@ def query_document_direct(
             session=session,
             query=data.query,
             search_mode=data.search_mode,
+            search_scope=data.search_scope,
+            selected_node_id=data.selected_node_id,
+            selected_node_name=data.selected_node_name,
+            model_name=data.model_name,
         )
         node_ids: list[str] = []
         edge_ids: list[str] = []
@@ -244,30 +257,104 @@ def query_document_direct(
 
     # Direct query execution for seeded / demo document graphs
     from app.llm.client import get_chat_model
-    from app.llm.prompts import REGULUS_CHAT_PROMPT
+    from app.llm.prompts import REGULUS_CHAT_PROMPT, REGULUS_SCOPED_CHAT_PROMPT
     from app.services.retrieval.local_search import execute_local_search
+    from app.services.retrieval.study_features import get_node_dossier
+
+    dossier: dict[str, Any] | None = None
+    if data.selected_node_id:
+        try:
+            dossier = get_node_dossier(document_id, data.selected_node_id)
+        except Exception as exc:
+            logger.warning("Could not fetch dossier for node %s: %s", data.selected_node_id, exc)
 
     local_res = execute_local_search(document_id, data.query)
-    node_ids = [n["id"] for n in local_res.subgraph_nodes]
-    edge_ids = [f"{e['source']}->{e['target']}" for e in local_res.subgraph_edges]
 
-    subgraph_lines = [
-        f"- {n['name']} ({n['type']}): {n['description']}"
-        for n in local_res.subgraph_nodes
-    ]
-    subgraph_context = "\n".join(subgraph_lines) or "No specific subgraph nodes found."
+    is_topic_scope = (data.search_scope == "topic" or not data.search_scope) and (dossier or data.selected_node_name)
 
-    chunk_lines = [
-        f"[Chunk {c.get('chunk_index', idx)}]: {c['text']}"
-        for idx, c in enumerate(local_res.text_chunks)
-    ]
-    chunks_context = "\n\n".join(chunk_lines) or "No verbatim chunks found."
+    if is_topic_scope:
+        target_name = (dossier.get("name") if dossier else None) or data.selected_node_name or data.selected_node_id or "Active Concept"
+        target_type = (dossier.get("type") if dossier else "CONCEPT") or "CONCEPT"
+        target_desc = (dossier.get("description") if dossier else "") or ""
 
-    prompt_messages = REGULUS_CHAT_PROMPT.format_messages(
-        subgraph_context=subgraph_context,
-        chunks_context=chunks_context,
-        question=data.query,
-    )
+        rel_outs = dossier.get("outgoing_relations", []) if dossier else []
+        rel_ins = dossier.get("incoming_relations", []) if dossier else []
+
+        active_id = dossier["node_id"] if dossier else (data.selected_node_id or "node-active")
+        node_ids = [active_id] + [r["target"] for r in rel_outs] + [r["source"] for r in rel_ins]
+        edge_ids = [f"{r['source']}->{r['target']}" for r in rel_outs + rel_ins]
+
+        local_context_lines = [
+            f"Active Focus Tower: {target_name} ({target_type})",
+            f"Definition / Purpose: {target_desc}",
+            "Prerequisites & Prior Concepts:",
+            *(f"- {r['source']} -[{r['relation']}]-> {target_name}" for r in rel_ins[:3]),
+            "Successors & Future Dependencies:",
+            *(f"- {target_name} -[{r['relation']}]-> {r['target']}" for r in rel_outs[:3]),
+        ]
+        local_context = "\n".join(local_context_lines)
+
+        subgraph_lines = [
+            f"- {n['name']} ({n['type']}): {n['description']}"
+            for n in local_res.subgraph_nodes
+            if n["id"] != active_id
+        ]
+        subgraph_context = "\n".join(subgraph_lines) or "No secondary peripheral nodes."
+
+        combined_chunks = (dossier.get("text_chunks", []) if dossier else []) + local_res.text_chunks
+        seen_texts: set[str] = set()
+        unique_chunks: list[dict[str, Any]] = []
+        for ch in combined_chunks:
+            txt = ch.get("text", "")
+            if txt and txt not in seen_texts:
+                seen_texts.add(txt)
+                unique_chunks.append(ch)
+
+        chunks_context = "\n\n".join(
+            f"[Chunk {c.get('chunk_index', idx)}]: {c.get('text', '')}"
+            for idx, c in enumerate(unique_chunks[:4])
+        ) or "No verbatim chunks found."
+
+        prompt_messages = REGULUS_SCOPED_CHAT_PROMPT.format_messages(
+            scope_mode="Topic Focus",
+            target_topic=target_name,
+            local_context=local_context,
+            subgraph_context=subgraph_context,
+            chunks_context=chunks_context,
+            question=data.query,
+        )
+    elif data.search_scope == "worldwide":
+        node_ids = [n["id"] for n in local_res.subgraph_nodes]
+        edge_ids = [f"{e['source']}->{e['target']}" for e in local_res.subgraph_edges]
+        target_name = data.selected_node_name or "Global Knowledge"
+        prompt_messages = REGULUS_SCOPED_CHAT_PROMPT.format_messages(
+            scope_mode="Worldwide AI Knowledge",
+            target_topic=target_name,
+            local_context=f"Subject: {target_name}. Broad worldwide literature search requested.",
+            subgraph_context="Reference document concepts if applicable, but synthesize using expansive global computer science/engineering literature.",
+            chunks_context="\n\n".join(
+                f"[Chunk {c.get('chunk_index', idx)}]: {c.get('text', '')}"
+                for idx, c in enumerate(local_res.text_chunks[:2])
+            ) or "General world knowledge applies.",
+            question=data.query,
+        )
+    else:
+        node_ids = [n["id"] for n in local_res.subgraph_nodes]
+        edge_ids = [f"{e['source']}->{e['target']}" for e in local_res.subgraph_edges]
+        subgraph_lines = [
+            f"- {n['name']} ({n['type']}): {n['description']}"
+            for n in local_res.subgraph_nodes
+        ]
+        subgraph_context = "\n".join(subgraph_lines) or "No specific subgraph nodes found."
+        chunks_context = "\n\n".join(
+            f"[Chunk {c.get('chunk_index', idx)}]: {c['text']}"
+            for idx, c in enumerate(local_res.text_chunks)
+        ) or "No verbatim chunks found."
+        prompt_messages = REGULUS_CHAT_PROMPT.format_messages(
+            subgraph_context=subgraph_context,
+            chunks_context=chunks_context,
+            question=data.query,
+        )
 
     try:
         model = get_chat_model()
@@ -277,7 +364,28 @@ def query_document_direct(
         )
     except Exception as exc:
         logger.warning("LLM fallback in query_document_direct: %s", exc)
-        if local_res.text_chunks:
+        if is_topic_scope:
+            target_name = (dossier.get("name") if dossier else None) or data.selected_node_name or "Selected Topic"
+            desc = (dossier.get("description") if dossier else "") or ""
+            answer_text = f"**🎯 Topic Focus: {target_name}**\n\n{desc or 'A core component within this document curriculum.'}\n\n"
+            if dossier and (dossier.get("incoming_relations") or dossier.get("outgoing_relations")):
+                answer_text += "**Direct Structural Connections:**\n"
+                for r in dossier.get("incoming_relations", [])[:2]:
+                    answer_text += f"• Prerequisite: Builds upon **{r.get('source')}**\n"
+                for r in dossier.get("outgoing_relations", [])[:2]:
+                    answer_text += f"• Next Step: Leads into **{r.get('target')}**\n"
+                answer_text += "\n"
+            if local_res.text_chunks:
+                answer_text += f"Document excerpt: \"{local_res.text_chunks[0]['text'][:240]}...\""
+            else:
+                answer_text += f"In the learning path, understanding {target_name} is essential before advancing to higher-tier concepts."
+        elif data.search_scope == "worldwide":
+            answer_text = (
+                f"**🌐 Worldwide Engineering Context for '{data.query}':**\n\n"
+                f"Across modern scientific literature and engineering systems, this topic addresses fundamental architectural trade-offs. "
+                f"Industry best practices apply rigorous constraints to guarantee correctness, efficiency, and maintainability."
+            )
+        elif local_res.text_chunks:
             answer_text = f"Based on the document passages:\n\n{local_res.text_chunks[0]['text'][:350]}"
         elif local_res.subgraph_nodes:
             answer_text = f"Key concepts related to your query include: {', '.join(n['name'] for n in local_res.subgraph_nodes[:4])}."

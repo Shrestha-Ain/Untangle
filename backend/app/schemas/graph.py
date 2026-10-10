@@ -130,10 +130,27 @@ class LearningPathResponse(BaseModel):
     steps: list[LearningPathStep] = Field(default_factory=list)
 
 
+class HighYieldTopicGist(BaseModel):
+    node_id: str
+    name: str
+    type: str = "TOPIC"
+    high_yield_rank: int = 1
+    tagline: str = ""
+    summary: str = ""
+    key_formula_or_rule: str | None = None
+    likely_exam_question: str = ""
+    exam_trap: str = ""
+
+
 class ExamGistResponse(BaseModel):
     """Rapid revision 2-minute exam summary."""
 
     document_id: str
+    document_title: str = "Document Revision Sheet"
+    mode: str = "study"
+    total_topics: int = 0
+    generated_at: str = ""
+    high_yield_topics: list[HighYieldTopicGist] = Field(default_factory=list)
     top_concepts: list[str] = Field(default_factory=list)
     key_formulas: list[str] = Field(default_factory=list)
     common_pitfalls: list[str] = Field(default_factory=list)

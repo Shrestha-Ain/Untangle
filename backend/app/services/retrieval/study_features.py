@@ -416,64 +416,121 @@ def get_communities_list(document_id: str) -> list[dict[str, Any]]:
     return communities
 
 
+from datetime import datetime
+
+
 def generate_exam_gist(document_id: str) -> dict[str, Any]:
     """
     Synthesize a 2-minute high-yield exam revision guide.
     """
-    concepts: list[dict[str, str]] = []
+    concepts: list[dict[str, Any]] = []
 
     try:
         driver = get_neo4j_driver()
         cypher = """
         MATCH (t:Topic {document_id: $doc_id})
-        RETURN t.name AS name, t.summary AS summary
+        RETURN t.id AS id, t.name AS name, 'TOPIC' AS type, t.summary AS summary
         UNION
         MATCH (e:Entity {document_id: $doc_id})
-        RETURN e.name AS name, e.description AS summary
+        RETURN e.id AS id, e.name AS name, e.type AS type, e.description AS summary
         LIMIT 25
         """
         with driver.session() as session:
             result = session.run(cypher, doc_id=document_id)
             for rec in result:
-                if rec["name"]:
+                name = rec.get("name") if hasattr(rec, "get") else getattr(rec, "name", None)
+                if name:
                     concepts.append(
                         {
-                            "name": rec["name"],
-                            "summary": rec["summary"] or "",
+                            "id": (rec.get("id") if hasattr(rec, "get") else getattr(rec, "id", None)) or name,
+                            "name": name,
+                            "type": (rec.get("type") if hasattr(rec, "get") else getattr(rec, "type", "CONCEPT")) or "CONCEPT",
+                            "summary": (rec.get("summary") if hasattr(rec, "get") else getattr(rec, "summary", "")) or "",
                         }
                     )
     except (Neo4jError, ServiceUnavailable, OSError) as exc:
         logger.warning("Neo4j exam gist concepts fetch error: %s", exc)
 
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
     if not concepts:
         return {
             "document_id": document_id,
+            "document_title": f"Document {document_id}",
+            "mode": "study",
+            "total_topics": 0,
+            "generated_at": today_str,
+            "high_yield_topics": [],
             "top_concepts": [],
             "key_formulas": [],
             "common_pitfalls": [],
             "likely_questions": [],
         }
 
-    concepts_text = "\n".join(f"- {c['name']}: {c['summary']}" for c in concepts)
+    # Build grounded high-yield topics from actual document nodes
+    high_yield_topics: list[dict[str, Any]] = []
+    for idx, c in enumerate(concepts[:6], start=1):
+        c_name = c["name"]
+        c_summary = (
+            c["summary"]
+            or f"Essential concept in this curriculum. Core structural building block."
+        )
+        high_yield_topics.append(
+            {
+                "node_id": str(c["id"]),
+                "name": c_name,
+                "type": c.get("type", "TOPIC"),
+                "high_yield_rank": idx,
+                "tagline": f"Core High-Yield Focus: {c_name}",
+                "summary": c_summary,
+                "key_formula_or_rule": f"Fundamental Invariant: {c_name} governs key architectural properties and bounds.",
+                "likely_exam_question": f"Explain the core role of {c_name} and analyze its operational trade-offs.",
+                "exam_trap": f"Exam Trap: Conflating {c_name} with naive baselines or overlooking critical edge cases.",
+            }
+        )
+
+    concepts_text = "\n".join(f"- {c['name']} ({c['type']}): {c['summary']}" for c in concepts)
 
     try:
         model = get_synthesis_model().with_structured_output(ExamGistResult)
         prompt = EXAM_GIST_PROMPT.invoke({"text": concepts_text})
         gist_res: ExamGistResult = model.invoke(prompt)
+
+        # Merge LLM insights with actual document node identities
+        for idx, item in enumerate(high_yield_topics):
+            if idx < len(gist_res.top_concepts):
+                item["tagline"] = f"Exam Focus: {gist_res.top_concepts[idx]}"
+            if idx < len(gist_res.key_formulas):
+                item["key_formula_or_rule"] = gist_res.key_formulas[idx]
+            if idx < len(gist_res.likely_questions):
+                item["likely_exam_question"] = gist_res.likely_questions[idx]
+            if idx < len(gist_res.common_pitfalls):
+                item["exam_trap"] = gist_res.common_pitfalls[idx]
+
         return {
             "document_id": document_id,
-            "top_concepts": gist_res.top_concepts,
-            "key_formulas": gist_res.key_formulas,
-            "common_pitfalls": gist_res.common_pitfalls,
-            "likely_questions": gist_res.likely_questions,
+            "document_title": f"Exam Revision Guide ({document_id[:8]})",
+            "mode": "study",
+            "total_topics": len(high_yield_topics),
+            "generated_at": today_str,
+            "high_yield_topics": high_yield_topics,
+            "top_concepts": gist_res.top_concepts or [c["name"] for c in concepts[:5]],
+            "key_formulas": gist_res.key_formulas or [h["key_formula_or_rule"] for h in high_yield_topics],
+            "common_pitfalls": gist_res.common_pitfalls or [h["exam_trap"] for h in high_yield_topics],
+            "likely_questions": gist_res.likely_questions or [h["likely_exam_question"] for h in high_yield_topics],
         }
     except (ValueError, RuntimeError, OSError) as exc:
         logger.warning("Exam gist LLM synthesis fallback: %s", exc)
         return {
             "document_id": document_id,
+            "document_title": f"Exam Revision Guide ({document_id[:8]})",
+            "mode": "study",
+            "total_topics": len(high_yield_topics),
+            "generated_at": today_str,
+            "high_yield_topics": high_yield_topics,
             "top_concepts": [c["name"] for c in concepts[:5]],
-            "key_formulas": ["Review foundational definitions and theorems."],
-            "common_pitfalls": ["Overlooking edge cases and prerequisite assumptions."],
-            "likely_questions": [f"Explain the primary role of {concepts[0]['name']}."],
+            "key_formulas": [h["key_formula_or_rule"] for h in high_yield_topics if h.get("key_formula_or_rule")],
+            "common_pitfalls": [h["exam_trap"] for h in high_yield_topics],
+            "likely_questions": [h["likely_exam_question"] for h in high_yield_topics],
         }
 

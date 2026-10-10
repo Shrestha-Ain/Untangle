@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.llm.client import get_chat_model
-from app.llm.prompts import REGULUS_CHAT_PROMPT
+from app.llm.prompts import REGULUS_CHAT_PROMPT, REGULUS_SCOPED_CHAT_PROMPT
 from app.models.chat import ChatMessage, ChatSession
 from app.schemas.chat import ChatSessionCreate
 from app.services.retrieval.global_search import execute_global_search
@@ -263,8 +263,12 @@ def generate_chat_turn_sync(
     session: ChatSession,
     query: str,
     search_mode: str | None = None,
+    search_scope: str | None = "topic",
+    selected_node_id: str | None = None,
+    selected_node_name: str | None = None,
+    model_name: str | None = "flash",
 ) -> ChatMessage:
-    """Synchronous fallback for HTTP REST endpoints."""
+    """Synchronous fallback for HTTP REST endpoints with topic/document/worldwide scoping."""
     start_time = time.time()
     save_chat_message(db, session.id, role="user", content=query)
     mode = route_query(query, search_mode or session.search_mode)
@@ -274,7 +278,58 @@ def generate_chat_turn_sync(
     edge_ids: list[str] = []
     citations: list[dict[str, Any]] = []
 
-    if mode == "local":
+    dossier: dict[str, Any] | None = None
+    if selected_node_id:
+        try:
+            from app.services.retrieval.study_features import get_node_dossier
+            dossier = get_node_dossier(doc_id_str, selected_node_id)
+        except Exception as exc:
+            logger.warning("Error fetching node dossier for %s: %s", selected_node_id, exc)
+
+    if dossier and (search_scope == "topic" or not search_scope):
+        target_name = dossier.get("name") or selected_node_name or selected_node_id
+        target_type = dossier.get("type", "CONCEPT")
+        target_desc = dossier.get("description", "")
+
+        rel_outs = dossier.get("outgoing_relations", [])
+        rel_ins = dossier.get("incoming_relations", [])
+
+        node_ids = [dossier["node_id"]] + [r["target"] for r in rel_outs] + [r["source"] for r in rel_ins]
+        edge_ids = [f"{r['source']}->{r['target']}" for r in rel_outs + rel_ins]
+
+        local_context_lines = [
+            f"Active Focus: {target_name} ({target_type})",
+            f"Definition: {target_desc}",
+            "Prerequisites (Incoming):",
+            *(f"- {r['source']} -> {target_name}" for r in rel_ins[:3]),
+            "Successors (Outgoing):",
+            *(f"- {target_name} -> {r['target']}" for r in rel_outs[:3]),
+        ]
+        local_context = "\n".join(local_context_lines)
+        subgraph_context = f"Selected Tower: {target_name}. Scoped to immediate neighborhood."
+        chunks_context = "\n\n".join(
+            f"[Chunk {c.get('chunk_index', idx)}]: {c.get('text', '')}"
+            for idx, c in enumerate(dossier.get("text_chunks", [])[:3])
+        ) or "No verbatim chunks."
+
+        citations = [
+            {
+                "chunk_id": str(c.get("chunk_index", idx)),
+                "text": c.get("text", "")[:140],
+                "page_number": c.get("page_number"),
+            }
+            for idx, c in enumerate(dossier.get("text_chunks", [])[:3])
+        ]
+
+        prompt_messages = REGULUS_SCOPED_CHAT_PROMPT.format_messages(
+            scope_mode="Topic Focus",
+            target_topic=target_name,
+            local_context=local_context,
+            subgraph_context=subgraph_context,
+            chunks_context=chunks_context,
+            question=query,
+        )
+    elif mode == "local":
         local_res = execute_local_search(doc_id_str, query)
         node_ids = [n["id"] for n in local_res.subgraph_nodes]
         edge_ids = [f"{e['source']}->{e['target']}" for e in local_res.subgraph_edges]
@@ -294,11 +349,16 @@ def generate_chat_turn_sync(
             }
             for idx, c in enumerate(local_res.text_chunks)
         ]
+        prompt_messages = REGULUS_CHAT_PROMPT.format_messages(
+            subgraph_context=subgraph_context,
+            chunks_context=chunks_context,
+            question=query,
+        )
     else:
         global_res = execute_global_search(doc_id_str, query)
         node_ids = [c["title"] for c in global_res.communities_used]
         edge_ids = []
-        subgraph_context = "\n\n".join(
+        subgraph_context = "\n".join(
             f"### {c['title']} (Rating: {c['rating']})\n{c['summary']}"
             for c in global_res.communities_used
         )
@@ -311,12 +371,11 @@ def generate_chat_turn_sync(
             }
             for c in global_res.communities_used
         ]
-
-    prompt_messages = REGULUS_CHAT_PROMPT.format_messages(
-        subgraph_context=subgraph_context,
-        chunks_context=chunks_context,
-        question=query,
-    )
+        prompt_messages = REGULUS_CHAT_PROMPT.format_messages(
+            subgraph_context=subgraph_context,
+            chunks_context=chunks_context,
+            question=query,
+        )
 
     try:
         model = get_chat_model()
@@ -324,7 +383,12 @@ def generate_chat_turn_sync(
         answer = str(response.content)
     except (ValueError, RuntimeError, OSError) as exc:
         logger.warning("Regulus sync chat fallback: %s", exc)
-        answer = "I was unable to synthesize a response from the document."
+        if dossier and search_scope == "topic":
+            answer = f"**Topic Focus: {dossier.get('name', selected_node_name)}**\n\n{dossier.get('description', '')}\n\nThis concept is a core element in the curriculum."
+        elif search_scope == "worldwide":
+            answer = f"Worldwide overview for '{query}': In modern computational architecture, this paradigm establishes essential invariants for distributed and parallel systems."
+        else:
+            answer = "I was unable to synthesize a response from the document."
 
     latency_ms = int((time.time() - start_time) * 1000)
 

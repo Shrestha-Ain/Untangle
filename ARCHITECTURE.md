@@ -238,26 +238,38 @@ flowchart LR
 3. **Global Search (`global_search.py`)**:
    - Queries Neo4j for community summary nodes.
    - Ranks community summaries against the topic using semantic relevance.
-4. **Streaming Response**:
-   - Tokens stream in real time to the browser via WebSocket.
-   - A final completion payload delivers `citations` and `retrieved_subgraph: { node_ids: [...], edge_ids: [...] }`.
+4. **Streaming Response & Tri-Modal Search Routing**:
+   - **🎯 Topic Focus (Local First)**: Scoped specifically to the currently selected tower. Queries node attributes, formulas, and 1-hop incoming/outgoing relations first before falling back to broader text.
+   - **📄 Document RAG**: Executes hybrid vector search + Neo4j graph traversal across the whole document.
+   - **🌐 Worldwide Search**: Synthesizes broad engineering and global scientific knowledge outside document boundaries.
+   - **Model Switcher**: Allows toggling between `⚡ Flash` (low-latency synthesis) and `🧠 Sonnet / Pro` (deep multi-step reasoning).
 5. **Interactive Subgraph Illumination**:
    - The Pinia store (`useGraphStore`) updates `highlightedSubgraph`.
    - The canvas dynamically triggers pulsing neon glow rings on active towers and lights up energy roads.
 
 ---
 
-### E. Study Mode Interactive Features
+### E. 3D Isometric Architecture & Spatial Spacing Engine
+- **Main vs. Sub Towers (`TowerBuilding.vue`)**:
+  - **Main Towers**: High-level chapters and foundational paradigms (`level >= 4`, `type === 'CHAPTER' | 'ORG'`). Rendered with multi-tiered stepped plinths, lit and shaded isometric walls, cyber window slits, upper architectural spires, elevated floating 3D diamond crystals with glow filters, skyward laser beacons, and gold `👑 MAIN` badges.
+  - **Sub Towers**: Satellite sections and subtopics. Rendered as compact pavilions with slanted solar-crystal prism roofs, communication antennae with pulse rings, and `🔹 SUB` badges.
+- **Collision-Free Spatial Layout (`useTownLayout.ts`)**:
+  - Multi-hub regional anchors across a 2048×1400 canvas.
+  - Radial satellite orbit placement for sub towers around parent main towers.
+  - Iterative physics repulsion pass (`relaxCollision`) enforcing a strict minimum distance of ≥ 260px between all towers to eliminate crowding.
+
+---
+
+### F. Study Mode Interactive Features & Progression
 - **Sequential Learning Path (`LearningPathStepper.vue`)**:
-  - Traverses prerequisite edges (`:PREREQUISITE_OF` or topological sort) to present a ordered walkthrough of concepts.
+  - Topologically ordered progression slider indicating which topic precedes and follows each concept.
+  - Unidirectional dependency arrows from prerequisite steps to subsequent milestones.
+  - Interactive **Roadmap Flow Drawer** showing curriculum prerequisites, interchangeable parallel topics, and instant jump-to-step navigation.
 - **Deep Topic Dossier (`TopicReaderModal.vue`)**:
   - Displays summary, formulas/code snippets, prerequisites, and verbatim excerpts for any building.
-- **Exam Gist Revision Sheet (`ExamGistModal.vue`)**:
-  - Generates an instant high-yield cheat sheet with:
-    - **High-Yield Rank** (Top 10 most critical concepts).
-    - **Formulas to Memorize**.
-    - **Likely Exam Questions**.
-    - **Traps to Avoid**.
+- **Document-Grounded Exam Gist (`ExamGistModal.vue` & `study_features.py`)**:
+  - Unified `HighYieldTopicGist` schema across backend and frontend.
+  - Dynamically derives ranked high-yield concepts, core memorization rules, classic exam questions, and misconception traps from the document's actual graph nodes (eliminating mismatched textbook notes).
 
 ---
 

@@ -38,27 +38,6 @@ function isoProject(gx: number, gy: number) {
   }
 }
 
-function spiralCoords(index: number) {
-  if (index === 0) return { gx: 0, gy: 0 }
-  const ring = Math.floor(Math.sqrt(index))
-  const pos = index - ring * ring
-  const side = Math.floor(pos / Math.max(ring, 1))
-  const offset = pos % Math.max(ring, 1)
-
-  const directions = [
-    { gx: 1, gy: 0 },
-    { gx: 0, gy: 1 },
-    { gx: -1, gy: 0 },
-    { gx: 0, gy: -1 },
-  ]
-  const dir = directions[side % 4]
-  const nextDir = directions[(side + 1) % 4]
-
-  return {
-    gx: ring * dir.gx + offset * nextDir.gx,
-    gy: ring * dir.gy + offset * nextDir.gy,
-  }
-}
 
 export const DISTRICT_THEMES = [
   { fill: '#CEEFE2', stroke: '#B4E5D1', textColor: '#0D9488' }, // Cyan-Green Attention Valley
@@ -67,19 +46,87 @@ export const DISTRICT_THEMES = [
   { fill: '#FDF1DF', stroke: '#F8DFBC', textColor: '#D97706' }, // Amber Benchmark Arena
 ]
 
-export function useTownLayout() {
-  function layoutBuildings(buildings: BuildingLayoutInput[]) {
-    // If buildings already have distinct x/y, preserve them
-    const sorted = [...buildings].sort((a, b) => (b.mentionCount || 1) - (a.mentionCount || 1))
+export function isMainTower(b: { type?: string; level?: number; mentionCount?: number }): boolean {
+  return (b.level ?? 1) >= 4 || b.type === 'CHAPTER' || b.type === 'ORG' || (b.mentionCount ?? 0) >= 20
+}
 
-    return sorted.map((b, i) => {
-      if (b.x !== undefined && b.y !== undefined) {
+// Generous regional hub anchors across 2048x1400 canvas for spacious distribution
+const MAIN_TOWER_HUBS = [
+  { x: 1020, y: 440 }, // Central Grand Citadel
+  { x: 560, y: 380 },  // Northwest Scholar Bastion
+  { x: 1520, y: 420 }, // Northeast Research Outpost
+  { x: 620, y: 760 },  // Southwest Engineering Yard
+  { x: 1460, y: 780 }, // Southeast Innovation Arena
+  { x: 1040, y: 840 }, // South Nexus
+]
+
+export function useTownLayout() {
+  function relaxCollision(placed: Array<BuildingLayoutInput & { x: number; y: number }>) {
+    const MIN_DIST = 260
+    const MIN_X = 210
+    const MIN_Y = 160
+    const ITERATIONS = 12
+
+    for (let iter = 0; iter < ITERATIONS; iter++) {
+      let moved = false
+      for (let i = 0; i < placed.length; i++) {
+        for (let j = i + 1; j < placed.length; j++) {
+          const b1 = placed[i]
+          const b2 = placed[j]
+          const dx = b2.x - b1.x
+          const dy = b2.y - b1.y
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1
+
+          if (dist < MIN_DIST || (Math.abs(dx) < MIN_X && Math.abs(dy) < MIN_Y)) {
+            moved = true
+            const overlap = (MIN_DIST - dist) / 2
+            const nx = dx / dist
+            const ny = dy / dist
+
+            b1.x = Math.max(160, Math.min(1920, Math.round(b1.x - nx * overlap * 0.6)))
+            b1.y = Math.max(160, Math.min(1240, Math.round(b1.y - ny * overlap * 0.6)))
+            b2.x = Math.max(160, Math.min(1920, Math.round(b2.x + nx * overlap * 0.6)))
+            b2.y = Math.max(160, Math.min(1240, Math.round(b2.y + ny * overlap * 0.6)))
+          }
+        }
+      }
+      if (!moved) break
+    }
+    return placed
+  }
+
+  function layoutBuildings(buildings: BuildingLayoutInput[]) {
+    let mainHubIdx = 0
+    let subOrbitIdx = 0
+
+    const placed = buildings.map((b) => {
+      // If position already explicitly designated and non-zero
+      if (b.x !== undefined && b.y !== undefined && (b.x > 0 || b.y > 0)) {
         return { ...b, x: b.x, y: b.y }
       }
-      const { gx, gy } = spiralCoords(i)
-      const { x, y } = isoProject(gx, gy)
-      return { ...b, x, y }
+
+      if (isMainTower(b)) {
+        const hub = MAIN_TOWER_HUBS[mainHubIdx % MAIN_TOWER_HUBS.length]
+        mainHubIdx++
+        return { ...b, x: hub.x, y: hub.y }
+      } else {
+        // Sub towers orbit around recent main hub or canvas sectors
+        const parentHub = MAIN_TOWER_HUBS[Math.max(0, mainHubIdx - 1) % MAIN_TOWER_HUBS.length]
+        const angle = (subOrbitIdx * 65 * Math.PI) / 180
+        const radius = 290 + (subOrbitIdx % 3) * 60
+        subOrbitIdx++
+        const x = Math.round(parentHub.x + Math.cos(angle) * radius)
+        const y = Math.round(parentHub.y + Math.sin(angle) * (radius * 0.65))
+        return {
+          ...b,
+          x: Math.max(160, Math.min(1920, x)),
+          y: Math.max(160, Math.min(1240, y)),
+        }
+      }
     })
+
+    // Perform physics repulsion pass to guarantee towers never crowd or overlap
+    return relaxCollision(placed)
   }
 
   function layoutRoads(

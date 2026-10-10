@@ -107,11 +107,15 @@ export const useGraphStore = defineStore('graph', {
     isExamGistOpen: false,
     isLoading: false,
     currentDocumentId: null as string | null,
+    currentDocumentTitle: null as string | null,
+    mode: 'study' as 'research' | 'study',
   }),
 
   getters: {
     selectedEntity: (state) =>
       state.nodes.find((n) => n.id === state.selectedEntityId) ?? null,
+
+    selectedNodeId: (state) => state.selectedEntityId,
 
     townBuildings: (state) =>
       state.nodes.map((n) => ({
@@ -203,6 +207,7 @@ export const useGraphStore = defineStore('graph', {
   actions: {
     async loadGraph(documentId: string, mode: 'research' | 'study' = 'research') {
       this.currentDocumentId = documentId
+      this.mode = mode
       this.isLoading = true
 
       try {
@@ -309,13 +314,13 @@ export const useGraphStore = defineStore('graph', {
       if (mode === 'study') {
         // Study Mode Hierarchy (OSTEP book style - clean, spacious cartography)
         this.nodes = [
-          { id: 'sec-1-1', name: 'Process API', type: 'SECTION', description: 'Core system calls: fork(), exec(), and wait().', mention_count: 18, level: 4, path_order: 1, x: 580, y: 320, is_interchangeable: false },
-          { id: 'top-1-1-1', name: 'Fork Call', type: 'TOPIC', description: 'Creates a child process that is an almost exact clone of the caller.', mention_count: 14, level: 3, path_order: 2, x: 500, y: 520, is_interchangeable: true },
-          { id: 'top-1-1-2', name: 'Context Switch', type: 'TOPIC', description: 'Mechanism to save register state and restore another process.', mention_count: 16, level: 3, path_order: 3, x: 920, y: 360, is_interchangeable: true },
-          { id: 'chap-2', name: 'Concurrency', type: 'CHAPTER', description: 'Managing multi-threaded access to shared variables and critical sections.', mention_count: 22, level: 5, path_order: 4, x: 980, y: 580, is_interchangeable: false },
-          { id: 'sec-2-1', name: 'Locks & Mutexes', type: 'SECTION', description: 'Hardware and software primitives for mutual exclusion.', mention_count: 17, level: 4, path_order: 5, x: 1380, y: 400, is_interchangeable: false },
-          { id: 'top-2-1-1', name: 'Compare-And-Swap', type: 'TOPIC', description: 'Atomic hardware instruction utilized for building spinlocks.', mention_count: 12, level: 2, path_order: 6, x: 1280, y: 660, is_interchangeable: false },
-          { id: 'top-ext-paper', name: 'Amdahl Law', type: 'CONCEPT', description: 'Theoretical bound on parallel speedup (Cross-source link).', mention_count: 9, level: 2, path_order: 7, x: 940, y: 800, is_interchangeable: false },
+          { id: 'sec-1-1', name: 'Process API', type: 'SECTION', description: 'Core system calls: fork(), exec(), and wait().', mention_count: 18, level: 4, path_order: 1, x: 520, y: 380, is_interchangeable: false },
+          { id: 'top-1-1-1', name: 'Fork Call', type: 'TOPIC', description: 'Creates a child process that is an almost exact clone of the caller.', mention_count: 14, level: 3, path_order: 2, x: 340, y: 680, is_interchangeable: true },
+          { id: 'top-1-1-2', name: 'Context Switch', type: 'TOPIC', description: 'Mechanism to save register state and restore another process.', mention_count: 16, level: 3, path_order: 3, x: 740, y: 660, is_interchangeable: true },
+          { id: 'chap-2', name: 'Concurrency', type: 'CHAPTER', description: 'Managing multi-threaded access to shared variables and critical sections.', mention_count: 22, level: 5, path_order: 4, x: 1140, y: 360, is_interchangeable: false },
+          { id: 'sec-2-1', name: 'Locks & Mutexes', type: 'SECTION', description: 'Hardware and software primitives for mutual exclusion.', mention_count: 17, level: 4, path_order: 5, x: 1480, y: 560, is_interchangeable: false },
+          { id: 'top-2-1-1', name: 'Compare-And-Swap', type: 'TOPIC', description: 'Atomic hardware instruction utilized for building spinlocks.', mention_count: 12, level: 2, path_order: 6, x: 1720, y: 400, is_interchangeable: false },
+          { id: 'top-ext-paper', name: 'Amdahl Law', type: 'CONCEPT', description: 'Theoretical bound on parallel speedup (Cross-source link).', mention_count: 9, level: 2, path_order: 7, x: 1120, y: 780, is_interchangeable: false },
         ]
         this.edges = [
           { id: 'e-1', source_id: 'sec-1-1', target_id: 'top-1-1-1', relation_type: 'HAS_TOPIC' },
@@ -343,12 +348,12 @@ export const useGraphStore = defineStore('graph', {
       } else {
         // Research Mode Graph (Attention Is All You Need - spacious page2 layout)
         this.nodes = [
-          { id: 'n-sdpa', name: 'Scaled Dot-Product', type: 'LOCATION', description: 'Core matrix attention equation: softmax(QK^T / sqrt(d_k))V.', mention_count: 28, level: 4, path_order: 1, x: 960, y: 680, is_interchangeable: false },
-          { id: 'n-attn', name: 'Multi-Head Attention', type: 'CONCEPT', description: 'Mechanism computing joint information across distinct representation subspaces.', mention_count: 38, level: 5, path_order: 2, x: 980, y: 440, is_interchangeable: false },
-          { id: 'n-pe', name: 'Positional Encoding', type: 'CONCEPT', description: 'Injected sine/cosine frequencies providing sequence order awareness.', mention_count: 18, level: 3, path_order: 3, x: 980, y: 220, is_interchangeable: true },
-          { id: 'n-vaswani', name: 'Ashish Vaswani', type: 'PERSON', description: 'Lead author of Attention Is All You Need, Google Brain.', mention_count: 14, level: 3, path_order: 4, x: 580, y: 460, is_interchangeable: true },
-          { id: 'n-brain', name: 'Google Brain', type: 'ORG', description: 'Deep learning research team where the Transformer was invented.', mention_count: 20, level: 4, path_order: 5, x: 1380, y: 420, is_interchangeable: true },
-          { id: 'n-bert', name: 'BERT Architecture', type: 'CONCEPT', description: 'Bidirectional encoder representations developed from transformers.', mention_count: 12, level: 2, path_order: 6, x: 1420, y: 640, is_interchangeable: false },
+          { id: 'n-sdpa', name: 'Scaled Dot-Product', type: 'LOCATION', description: 'Core matrix attention equation: softmax(QK^T / sqrt(d_k))V.', mention_count: 28, level: 4, path_order: 1, x: 620, y: 360, is_interchangeable: false },
+          { id: 'n-attn', name: 'Multi-Head Attention', type: 'CONCEPT', description: 'Mechanism computing joint information across distinct representation subspaces.', mention_count: 38, level: 5, path_order: 2, x: 1020, y: 440, is_interchangeable: false },
+          { id: 'n-pe', name: 'Positional Encoding', type: 'CONCEPT', description: 'Injected sine/cosine frequencies providing sequence order awareness.', mention_count: 18, level: 3, path_order: 3, x: 620, y: 720, is_interchangeable: true },
+          { id: 'n-vaswani', name: 'Ashish Vaswani', type: 'PERSON', description: 'Lead author of Attention Is All You Need, Google Brain.', mention_count: 14, level: 3, path_order: 4, x: 1420, y: 360, is_interchangeable: true },
+          { id: 'n-brain', name: 'Google Brain', type: 'ORG', description: 'Deep learning research team where the Transformer was invented.', mention_count: 20, level: 4, path_order: 5, x: 1460, y: 720, is_interchangeable: true },
+          { id: 'n-bert', name: 'BERT Architecture', type: 'CONCEPT', description: 'Bidirectional encoder representations developed from transformers.', mention_count: 12, level: 2, path_order: 6, x: 1040, y: 840, is_interchangeable: false },
         ]
         this.edges = [
           { id: 'e-1', source_id: 'n-sdpa', target_id: 'n-attn', relation_type: 'FOUNDATION_OF' },
@@ -503,7 +508,46 @@ export const useGraphStore = defineStore('graph', {
     },
 
     buildMockExamGist(documentId: string): ExamGistData {
-      const isStudy = documentId.includes('ostep') || documentId.includes('book')
+      // 1. If active nodes exist for the current document, dynamically construct high-yield topics
+      if (this.nodes.length > 0) {
+        const sorted = [...this.nodes].sort((a, b) => {
+          const scoreB = (b.mention_count || 0) + (b.level ? b.level * 4 : 0)
+          const scoreA = (a.mention_count || 0) + (a.level ? a.level * 4 : 0)
+          return scoreB - scoreA
+        })
+        const selected = sorted.slice(0, 6)
+        const docTitle =
+          this.currentDocumentTitle ||
+          (this.mode === 'study'
+            ? 'Course Curriculum / Operating Systems'
+            : 'Attention Is All You Need (Vaswani et al.)')
+
+        return {
+          document_id: documentId,
+          document_title: docTitle,
+          mode: this.mode,
+          total_topics: selected.length,
+          generated_at: new Date().toISOString().split('T')[0],
+          high_yield_topics: selected.map((node, idx) => ({
+            node_id: node.id,
+            name: node.name,
+            type: node.type,
+            high_yield_rank: idx + 1,
+            tagline: node.description ? `${node.description.slice(0, 52)}...` : `High-Yield ${node.type} Module`,
+            summary:
+              node.description ||
+              `Core concept in ${docTitle}. Governs critical architectural invariants and foundational workflows.`,
+            key_formula_or_rule:
+              node.type === 'CONCEPT' || node.type === 'TOPIC'
+                ? `Core Principle: Invariants for ${node.name} govern operational correctness.`
+                : undefined,
+            likely_exam_question: `Explain the fundamental role and mechanism of ${node.name} within this domain.`,
+            exam_trap: `Exam Trap: Conflating ${node.name} with naive baselines or overlooking critical edge cases.`,
+          })),
+        }
+      }
+
+      const isStudy = documentId.includes('ostep') || documentId.includes('book') || this.mode === 'study'
       if (isStudy) {
         return {
           document_id: documentId,

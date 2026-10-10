@@ -217,6 +217,8 @@ Guidelines:
 2. Refer to entities and relationships by their exact graph names.
 3. Be clear, analytical, and concise. Do not use game jargon or flowery filler words.
 4. If outside context is required, explicitly point out prerequisite topics that need context.
+5. If the user is inspecting a specific topic/tower, FOCUS FIRST on that topic. Answer precisely how the query pertains to that specific concept without dumping an unfocused A-to-Z textbook overview.
+6. If the local topic context is insufficient, consult the broader document context; if still insufficient or if Worldwide Search is requested, synthesize using external scientific knowledge while relating it back to the active topic.
 """
 
 REGULUS_CHAT_PROMPT = ChatPromptTemplate.from_messages(
@@ -228,6 +230,28 @@ REGULUS_CHAT_PROMPT = ChatPromptTemplate.from_messages(
                 "Context from Knowledge Graph Subgraph:\n{subgraph_context}\n\n"
                 "Verbatim Chunks:\n{chunks_context}\n\n"
                 "Question: {question}"
+            ),
+        ),
+    ]
+)
+
+REGULUS_SCOPED_CHAT_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", REGULUS_SYSTEM_PROMPT),
+        (
+            "human",
+            (
+                "Search Scope: {scope_mode}\n"
+                "Target Topic/Tower: {target_topic}\n\n"
+                "Local Topic Context & Graph Connections:\n{local_context}\n\n"
+                "Global Document Context:\n{subgraph_context}\n\n"
+                "Verbatim Chunks:\n{chunks_context}\n\n"
+                "User Query: {question}\n\n"
+                "Directives:\n"
+                "- Prioritize local topic context for {target_topic} first.\n"
+                "- Do NOT output a broad unfocused summary from A to Z.\n"
+                "- If the query asks for broader context, connect {target_topic} to the document context.\n"
+                "- If worldwide search is active, explain the concept using broad engineering knowledge."
             ),
         ),
     ]

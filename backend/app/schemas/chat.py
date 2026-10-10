@@ -21,6 +21,18 @@ class ChatMessageCreate(BaseModel):
     search_mode: str | None = Field(
         default=None, description="Optional override: 'local', 'global', or 'auto'"
     )
+    search_scope: str | None = Field(
+        default="topic", description="'topic', 'document', or 'worldwide'"
+    )
+    selected_node_id: str | None = Field(
+        default=None, description="Active selected entity/node id"
+    )
+    selected_node_name: str | None = Field(
+        default=None, description="Active selected entity/node name"
+    )
+    model_name: str | None = Field(
+        default="flash", description="'flash' or 'sonnet'"
+    )
 
 
 class ChatMessageRead(ChatMessageBase):

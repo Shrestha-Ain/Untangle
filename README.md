@@ -8,6 +8,17 @@ Turn research papers and textbooks into interactive, explorable knowledge maps. 
 - **Research Mode** — Papers → entity/relationship/community knowledge maps
 - **Study Mode** — Books/textbooks → chapter → section → topic hierarchy maps
 
+### Key Features & Innovations:
+- **3D Isometric Town Architecture**: Visually differentiated **Main Towers** (multi-tier stepped stone bases, cyber window slits, crystal apex, skyward laser beacons) and **Sub Towers** (compact satellite pavilions with prism solar roofs).
+- **Collision-Free Spatial Layout Engine**: Physics repulsion pass (`relaxCollision`) enforcing &ge; 260px distance between towers to eliminate clutter and crowding.
+- **Step Progression & Interactive Curriculum Roadmap**: Topologically ordered learning path with top slider navigation, unidirectional prerequisite arrows, and an interactive **Roadmap Flow Drawer**.
+- **Context-Aware Scoped AI Guide (Regulus)**:
+  - 🎯 **Topic Focus**: Scoped strictly to the active selected tower (checks local definition, formulas, and 1-hop connections first without dumping textbook overviews).
+  - 📄 **Document RAG**: Searches across the full document knowledge graph and verbatim text chunks.
+  - 🌐 **Worldwide AI**: Explores expansive global engineering and scientific knowledge beyond the document.
+  - **Model Switcher**: Seamlessly switch between `⚡ Flash` (speed) and `🧠 Sonnet / Pro` (deep reasoning).
+- **Document-Grounded Exam Gist**: Generates accurate, high-yield exam sheets directly derived from the loaded document's graph nodes with classic exam questions, formulas, and common traps.
+
 ---
 
 ## Prerequisites
