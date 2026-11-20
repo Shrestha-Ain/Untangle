@@ -12,7 +12,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.llm.client import get_chat_model
+from app.llm.client import clean_llm_text, get_chat_model
 from app.llm.prompts import REGULUS_CHAT_PROMPT, REGULUS_SCOPED_CHAT_PROMPT
 from app.models.chat import ChatMessage, ChatSession
 from app.schemas.chat import ChatSessionCreate
@@ -76,13 +76,17 @@ def get_chat_session(
 
 
 def get_session_messages(db: Session, session_id: uuid.UUID) -> list[ChatMessage]:
-    """Fetch chronological message history for a session."""
-    return (
+    """Fetch chronological message history for a session, ensuring clean text."""
+    messages = (
         db.query(ChatMessage)
         .filter(ChatMessage.session_id == session_id)
         .order_by(ChatMessage.created_at.asc())
         .all()
     )
+    for m in messages:
+        if m.role == "assistant" and m.content:
+            m.content = clean_llm_text(m.content)
+    return messages
 
 
 def save_chat_message(
@@ -95,10 +99,11 @@ def save_chat_message(
     latency_ms: int | None = None,
 ) -> ChatMessage:
     """Persist a message and touch session updated_at."""
+    sanitized_content = clean_llm_text(content) if role == "assistant" else content
     message = ChatMessage(
         session_id=session_id,
         role=role,
-        content=content,
+        content=sanitized_content,
         retrieved_subgraph=retrieved_subgraph,
         citations=citations,
         latency_ms=latency_ms,
@@ -218,7 +223,7 @@ async def stream_chat_turn(
     try:
         model = get_chat_model()
         async for chunk in model.astream(prompt_messages):
-            token = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
+            token = clean_llm_text(chunk.content)
             if token:
                 full_response_text.append(token)
                 yield {"type": "token", "content": token}
@@ -378,9 +383,9 @@ def generate_chat_turn_sync(
         )
 
     try:
-        model = get_chat_model()
+        model = get_chat_model(model_name=model_name)
         response = model.invoke(prompt_messages)
-        answer = str(response.content)
+        answer = clean_llm_text(response.content)
     except (ValueError, RuntimeError, OSError) as exc:
         logger.warning("Regulus sync chat fallback: %s", exc)
         if dossier and search_scope == "topic":

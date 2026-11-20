@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, onBeforeUnmount } from 'vue'
 import { useGraphStore } from '@/stores/graph'
+import { useProgressStore } from '@/stores/progress'
+import { useDraggableResizable } from '@/composables/useDraggableResizable'
 
 const graphStore = useGraphStore()
+const progressStore = useProgressStore()
 
 const totalSteps = computed(() => graphStore.learningPath.length)
 const currentStepNum = computed(() => graphStore.currentPathIndex + 1)
@@ -95,24 +98,81 @@ function selectRoadmapStep(index: number) {
   isRoadmapOpen.value = false
 }
 
+// Draggable & Resizable window setup
+const {
+  style,
+  onDragStart,
+  onResizeStart,
+  resetPlacement,
+  isDragging,
+  isCustomPositioned,
+} = useDraggableResizable({
+  initialWidth: 640,
+  initialHeight: 124,
+  minWidth: 420,
+  maxWidth: 980,
+  minHeight: 100,
+  maxHeight: 520,
+  defaultPlacement: 'top-center',
+  storageKey: 'learning_stepper',
+})
+
 onBeforeUnmount(() => {
   stopAutoPlay()
 })
 </script>
 
 <template>
-  <div v-if="totalSteps > 0" class="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-auto w-[94vw] max-w-2xl">
+  <div
+    v-if="totalSteps > 0"
+    :style="style"
+    class="pointer-events-auto select-none transition-shadow duration-150"
+    :class="[
+      isDragging ? 'shadow-2xl opacity-95 scale-[1.01]' : 'shadow-[0_16px_40px_rgba(15,23,42,0.14)]',
+    ]"
+  >
     <!-- Main Stepper HUD Capsule -->
     <div
-      class="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/80 shadow-[0_12px_36px_rgba(0,0,0,0.12)] transition-all select-none"
+      class="bg-white/95 dark:bg-[#0B0F17]/95 backdrop-blur-xl px-4 py-2.5 rounded-3xl border border-white/90 dark:border-slate-800 shadow-sm relative flex flex-col justify-between h-full group transition-colors"
     >
-      <!-- Top Row: Navigation Arrows, Topic Sequence Info & Controls -->
-      <div class="flex items-center justify-between gap-2">
+      <!-- 1. Top Drag Grip Bar & Reset Control -->
+      <div
+        class="flex items-center justify-between pb-1 cursor-move text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition-colors border-b border-slate-100 dark:border-slate-800"
+        @mousedown="onDragStart"
+        @touchstart="onDragStart"
+        title="Drag anywhere to move"
+      >
+        <div class="flex items-center gap-1.5 relative group/drag">
+          <span class="material-symbols-outlined text-[15px] text-[#10B981]">drag_indicator</span>
+          <span class="text-[9.5px] font-mono font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+            Learning Path Slider
+          </span>
+          <!-- Dynamic hover popup tag (ONLY pops up on hover) -->
+          <span class="absolute left-0 -top-7 pointer-events-none opacity-0 group-hover/drag:opacity-100 transition-opacity px-2 py-0.5 rounded bg-slate-900 text-white text-[9px] font-mono shadow-md whitespace-nowrap z-50">
+            ✋ Drag to move slider
+          </span>
+        </div>
+
+        <div class="flex items-center gap-1.5 no-drag">
+          <button
+            v-if="isCustomPositioned"
+            @click.stop="resetPlacement"
+            class="px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center gap-0.5 transition-colors"
+            title="Snap back to default top-center"
+          >
+            <span class="material-symbols-outlined text-[13px]">restart_alt</span>
+            <span>Reset Pos</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Controls & Step Info Row -->
+      <div class="flex items-center justify-between gap-2 pt-1">
         <!-- Left Navigation Arrow (Previous Step) -->
         <button
           @click="onPrev"
           :disabled="!canPrev"
-          class="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-100 text-[#1C1B18] hover:bg-[#E8F0EC] hover:text-[#0D9488] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+          class="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-100 text-[#1C1B18] hover:bg-emerald-50 hover:text-emerald-700 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs shrink-0"
           :title="prevNode ? `Previous Step: ${prevNode.name}` : 'First step'"
         >
           <span class="material-symbols-outlined text-lg">arrow_back</span>
@@ -122,7 +182,7 @@ onBeforeUnmount(() => {
         <div class="flex-1 text-center min-w-0 px-2">
           <!-- Status Badges -->
           <div class="flex items-center justify-center gap-1.5 flex-wrap">
-            <span class="text-[10px] font-mono font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#EBF7F2] text-[#0D9488]">
+            <span class="text-[10px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
               Step {{ currentStepNum }} of {{ totalSteps }}
             </span>
 
@@ -135,7 +195,7 @@ onBeforeUnmount(() => {
             </span>
             <span
               v-else
-              class="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200"
+              class="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200"
               title="Prerequisite-ordered step (unidirectional)"
             >
               → Sequential
@@ -143,14 +203,32 @@ onBeforeUnmount(() => {
 
             <span
               v-if="currentNode?.type"
-              class="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200"
+              class="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200"
             >
               {{ currentNode.type }}
             </span>
+
+            <!-- Quick Mark Mastered Button for Current Step -->
+            <button
+              v-if="currentNode"
+              @click.stop="progressStore.toggleTopicCompletion(currentNode.id)"
+              class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold flex items-center gap-1 border transition-all cursor-pointer shadow-2xs"
+              :class="[
+                progressStore.isTopicCompleted(currentNode.id)
+                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+              ]"
+              :title="progressStore.isTopicCompleted(currentNode.id) ? 'Topic Mastered! Click to unmark' : 'Click to mark as studied'"
+            >
+              <span class="material-symbols-outlined text-[12px]">
+                {{ progressStore.isTopicCompleted(currentNode.id) ? 'check_circle' : 'radio_button_unchecked' }}
+              </span>
+              <span>{{ progressStore.isTopicCompleted(currentNode.id) ? 'Mastered' : 'Mark Done' }}</span>
+            </button>
           </div>
 
           <!-- Step Name (Bold, Prominent) -->
-          <div class="text-xs sm:text-sm font-extrabold text-[#1C1B18] truncate leading-tight mt-0.5" :title="currentNode?.name">
+          <div class="text-xs sm:text-sm font-black text-[#1C1B18] truncate leading-tight mt-0.5" :title="currentNode?.name">
             {{ currentNode?.name ?? 'Select a Concept' }}
           </div>
 
@@ -178,37 +256,47 @@ onBeforeUnmount(() => {
         <button
           @click="onNext"
           :disabled="!canNext"
-          class="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-100 text-[#1C1B18] hover:bg-[#E8F0EC] hover:text-[#0D9488] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+          class="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-slate-700 hover:text-emerald-700 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs shrink-0"
           :title="nextNode ? `Next Step: ${nextNode.name}` : 'Final milestone'"
         >
           <span class="material-symbols-outlined text-lg">arrow_forward</span>
         </button>
 
         <!-- Action Quick-Links: Roadmap Flow, Auto-Tour and Dossier -->
-        <div class="flex items-center gap-1 ml-1">
+        <div class="flex items-center gap-1 shrink-0 ml-1">
           <!-- Flow Roadmap Toggle -->
           <button
             @click="isRoadmapOpen = !isRoadmapOpen"
-            class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-sm active:scale-95 border"
+            class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-xs active:scale-95 border"
             :class="[
               isRoadmapOpen
-                ? 'bg-[#0D9488] text-white border-[#0D9488] shadow-md'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700'
             ]"
-            title="View complete sequential topic roadmap (which topic is after which one)"
+            title="View complete sequential topic roadmap"
           >
             <span class="material-symbols-outlined text-sm">alt_route</span>
             <span class="hidden md:inline">Roadmap</span>
           </button>
 
+          <!-- Study Progress Metric Pill Button -->
+          <button
+            @click="progressStore.openProgressModal"
+            class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 transition-all shadow-xs active:scale-95 cursor-pointer"
+            title="View topic completion percentage and breakdown"
+          >
+            <span class="material-symbols-outlined text-sm">donut_large</span>
+            <span>{{ progressStore.completionPercentage }}%</span>
+          </button>
+
           <!-- Auto-Play Tour Toggle -->
           <button
             @click="toggleAutoPlay"
-            class="flex items-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-sm active:scale-95"
+            class="flex items-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-xs active:scale-95"
             :class="[
               isAutoPlaying
-                ? 'bg-[#0D9488] text-white ring-2 ring-[#0D9488]/30'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                ? 'bg-blue-600 text-white ring-2 ring-blue-600/30'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
             ]"
             :title="isAutoPlaying ? 'Pause automatic tour' : 'Start automatic tour through steps'"
           >
@@ -222,7 +310,7 @@ onBeforeUnmount(() => {
           <button
             v-if="currentNode"
             @click="graphStore.openTopicDossier(currentNode.id)"
-            class="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-white bg-[#0D9488] hover:bg-[#0B7A6F] active:scale-95 rounded-xl shadow-sm transition-all"
+            class="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-500 active:scale-95 rounded-xl shadow-xs transition-all"
             title="Read detailed topic dossier"
           >
             <span class="material-symbols-outlined text-sm">menu_book</span>
@@ -231,12 +319,12 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Bottom Row: Interactive Step Slider & Timeline Track -->
-      <div class="relative w-full mt-2.5 pt-1 px-1">
+      <!-- 3. Interactive Step Slider & Timeline Track -->
+      <div class="relative w-full mt-2 pt-1 px-1">
         <!-- Background Slider Rail Track with Colored Progress Fill -->
-        <div class="relative w-full h-1.5 bg-slate-200 rounded-full">
+        <div class="relative w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full">
           <div
-            class="h-full bg-gradient-to-r from-[#06B6D4] via-[#10B981] to-[#0D9488] rounded-full transition-all duration-300"
+            class="h-full bg-blue-600 rounded-full transition-all duration-300"
             :style="{ width: `${(graphStore.currentPathIndex / Math.max(totalSteps - 1, 1)) * 100}%` }"
           ></div>
         </div>
@@ -247,13 +335,13 @@ onBeforeUnmount(() => {
             <!-- Step Node Button -->
             <button
               @click="onStepClick(idx)"
-              class="relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-bold transition-all shadow-sm"
+              class="relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-bold transition-all shadow-xs"
               :class="[
                 idx === graphStore.currentPathIndex
-                  ? 'bg-[#0D9488] text-white ring-4 ring-[#0D9488]/30 scale-110 shadow-md'
+                  ? 'bg-blue-600 text-white ring-4 ring-blue-500/30 scale-110 shadow-md'
                   : idx < graphStore.currentPathIndex
-                    ? 'bg-[#10B981] text-white'
-                    : 'bg-white text-slate-500 border border-slate-300 hover:border-slate-500'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 hover:border-slate-500'
               ]"
               :title="`Step ${idx + 1}: ${getNodeName(stepId)}`"
             >
@@ -269,7 +357,7 @@ onBeforeUnmount(() => {
                 graphStore.isStepPairInterchangeable(stepId, graphStore.learningPath[idx + 1])
                   ? 'text-amber-500'
                   : idx < graphStore.currentPathIndex
-                    ? 'text-emerald-500'
+                    ? 'text-blue-500 dark:text-blue-400'
                     : 'text-slate-400'
               ]"
               :title="
@@ -295,6 +383,41 @@ onBeforeUnmount(() => {
           title="Slide or drag to navigate through steps"
         />
       </div>
+
+      <!-- 4. Resizing Handles -->
+      <!-- Right Edge Resize -->
+      <div
+        @mousedown.stop="onResizeStart($event, 'e')"
+        @touchstart.stop="onResizeStart($event, 'e')"
+        class="absolute top-1/2 right-0 w-2.5 h-12 -translate-y-1/2 cursor-e-resize hover:bg-teal-400/40 rounded-l transition-colors"
+        title="Drag edge to resize slider width"
+      ></div>
+
+      <!-- Left Edge Resize -->
+      <div
+        @mousedown.stop="onResizeStart($event, 'w')"
+        @touchstart.stop="onResizeStart($event, 'w')"
+        class="absolute top-1/2 left-0 w-2.5 h-12 -translate-y-1/2 cursor-w-resize hover:bg-teal-400/40 rounded-r transition-colors"
+        title="Drag edge to resize slider width"
+      ></div>
+
+      <!-- Bottom Edge Resize -->
+      <div
+        @mousedown.stop="onResizeStart($event, 's')"
+        @touchstart.stop="onResizeStart($event, 's')"
+        class="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-2 cursor-s-resize hover:bg-teal-400/40 rounded-t transition-colors"
+        title="Drag to resize slider height"
+      ></div>
+
+      <!-- Bottom-Right Corner Resize Grip -->
+      <div
+        @mousedown.stop="onResizeStart($event, 'se')"
+        @touchstart.stop="onResizeStart($event, 'se')"
+        class="absolute bottom-1 right-1.5 w-4 h-4 cursor-se-resize flex items-center justify-center text-slate-300 hover:text-teal-600 transition-colors"
+        title="Drag corner to resize slider"
+      >
+        <span class="text-[11px] leading-none select-none">⋱</span>
+      </div>
     </div>
 
     <!-- SEQUENTIAL TOPIC ROADMAP FLOW POPOVER (Shows which topic is after which one) -->
@@ -305,8 +428,8 @@ onBeforeUnmount(() => {
       <div class="flex items-center justify-between border-b border-slate-100 pb-2">
         <div>
           <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-[#0D9488] text-base">route</span>
-            <h3 class="text-xs font-bold text-[#1C1B18] uppercase tracking-wider font-mono">
+            <span class="material-symbols-outlined text-teal-600 text-base">route</span>
+            <h3 class="text-xs font-black text-[#1C1B18] uppercase tracking-wider font-mono">
               Topic Learning Progression Flow
             </h3>
           </div>
@@ -343,7 +466,7 @@ onBeforeUnmount(() => {
                 class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-bold flex-shrink-0"
                 :class="[
                   idx === graphStore.currentPathIndex
-                    ? 'bg-[#0D9488] text-white shadow-xs'
+                    ? 'bg-teal-600 text-white shadow-xs'
                     : idx < graphStore.currentPathIndex
                       ? 'bg-emerald-500 text-white'
                       : 'bg-slate-200 text-slate-600'
@@ -359,7 +482,7 @@ onBeforeUnmount(() => {
                   <span>{{ getNodeName(stepId) }}</span>
                   <span
                     v-if="idx === graphStore.currentPathIndex"
-                    class="text-[9px] font-mono uppercase bg-[#0D9488] text-white px-1.5 py-0.2 rounded"
+                    class="text-[9px] font-mono uppercase bg-teal-600 text-white px-1.5 py-0.2 rounded"
                   >
                     Active
                   </span>

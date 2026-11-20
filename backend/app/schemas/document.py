@@ -43,12 +43,12 @@ class DocumentUpdate(BaseModel):
 class DocumentRead(DocumentBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
-    user_id: uuid.UUID
-    file_size: int
-    status: str
+    id: uuid.UUID | str
+    user_id: uuid.UUID | str
+    file_size: int = 0
+    status: str = "ready"
     error_message: str | None = None
-    stats: dict[str, Any]
+    stats: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 

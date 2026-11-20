@@ -181,3 +181,19 @@ def test_pydantic_schema_validation():
     gist = ExamGistResult.model_validate(gist_data)
     assert len(gist.top_concepts) == 2
 
+
+def test_clean_llm_text_sanitization():
+    """Verify clean_llm_text strips python list wrappers, unescapes newlines, and eliminates apologies."""
+    from app.llm.client import clean_llm_text
+
+    raw_snippet = '[{\'type\': \'text\', \'text\': "As the local context chunks for **n-pe** (Positional Encoding) contain no direct text, this explanation synthesizes the standard scientific and engineering formulation of Positional Encoding within Transformer architectures, directly focusing on its step-by-step operation.\\n\\n---\\n\\n### Overview of `n-pe` (Positional Encoding)\\nBecause standard Self-Attention mechanisms are permutation-invariant (treating inputs as an unordered set of tokens), **Positional Encoding (`n-pe`)** is required to inject information regarding the order and sequence position of each token directly into the vector representations.\\n\\n---\\n\\n### Step-by-Step Mechanism of Positional..."}]'
+    
+    cleaned = clean_llm_text(raw_snippet)
+    assert not cleaned.startswith("[{")
+    assert not cleaned.startswith("As the local context chunks")
+    assert "### Overview of `n-pe` (Positional Encoding)" in cleaned
+    assert "Because standard Self-Attention mechanisms are permutation-invariant" in cleaned
+    assert "\n" in cleaned  # Real newlines present
+    assert "\\n" not in cleaned  # No escaped literal backslash-n
+
+

@@ -91,7 +91,13 @@ function normalizeBackendDocument(raw: any): DocumentItem {
     source_mode: mode,
     status: raw.status || 'pending',
     created_at: raw.created_at || new Date().toISOString(),
-    author: raw.author,
+    author:
+      raw.author ||
+      (raw.id === 'doc-attention-1706'
+        ? 'Vaswani et al. (Google Brain)'
+        : raw.id === 'doc-ostep-book'
+          ? 'Remzi & Andrea Arpaci-Dusseau'
+          : undefined),
     // Research stats (flattened from nested stats dict)
     entity_count: stats.entity_count ?? raw.entity_count,
     relationship_count: stats.relationship_count ?? stats.chunk_count ?? raw.relationship_count,

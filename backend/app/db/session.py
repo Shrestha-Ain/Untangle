@@ -30,6 +30,7 @@ else:
     engine = create_engine(
         db_url,
         pool_pre_ping=True,  # verify connections are alive before using them
+        connect_args={"connect_timeout": 2},
         echo=settings.environment == "development",
     )
 

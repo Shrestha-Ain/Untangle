@@ -37,6 +37,7 @@ const router = createRouter({
     },
     {
       path: '/realm/:documentId',
+      alias: ['/town/:documentId'],
       name: 'town-explorer',
       component: () => import('@/views/TownExplorerView.vue'),
       meta: { requiresAuth: true },

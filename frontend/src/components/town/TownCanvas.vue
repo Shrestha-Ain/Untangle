@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useGraphStore } from '@/stores/graph'
 import { usePanZoom } from '@/composables/usePanZoom'
 import { useTownLayout } from '@/composables/useTownLayout'
@@ -14,7 +14,7 @@ const props = defineProps<{
 
 const svgRef = ref<SVGSVGElement | null>(null)
 const graphStore = useGraphStore()
-const { translateX, translateY, scale, isDragging, onMouseDown, onWheel, zoomIn, zoomOut, recenter, focusOn } = usePanZoom()
+const { translateX, translateY, scale, isDragging, onMouseDown, onWheel, zoomIn, zoomOut, fitTown, focusOn } = usePanZoom()
 const { layoutBuildings, layoutRoads, layoutDistricts } = useTownLayout()
 
 // Compute positioned elements
@@ -25,6 +25,13 @@ const buildings = computed(() => {
   }
   return list.filter((b) => b.type === props.activeTypeFilter)
 })
+
+// Depth-sorted buildings for true 3D isometric layering (back-to-front rendering)
+const sortedBuildings = computed(() => {
+  return [...buildings.value].sort((a, b) => (a.y ?? 0) - (b.y ?? 0))
+})
+
+const activePunchedNodeId = ref<string | null>(null)
 
 const roads = computed(() => layoutRoads(graphStore.energyRoads, buildings.value))
 const districts = computed(() => layoutDistricts(graphStore.communities, buildings.value))
@@ -65,11 +72,11 @@ const learningPathSegments = computed<LearningPathSegment[]>(() => {
     const nx = dx / dist
     const ny = dy / dist
 
-    // Trim endpoints so arrowheads don't collide or hide under building bases
-    const startX = Math.round(p1.x + nx * 32)
-    const startY = Math.round(p1.y + ny * 32)
-    const endX = Math.round(p2.x - nx * 36)
-    const endY = Math.round(p2.y - ny * 36)
+    // Trim endpoints cleanly outside building foundations so arrowheads are 100% visible
+    const startX = Math.round(p1.x + nx * 44)
+    const startY = Math.round(p1.y + ny * 44)
+    const endX = Math.round(p2.x - nx * 54)
+    const endY = Math.round(p2.y - ny * 54)
 
     // Gentle curved path arc
     const ctrlX = Math.round((p1.x + p2.x) / 2 - ny * 32)
@@ -147,10 +154,24 @@ watch(
   { deep: true }
 )
 
-function focusOnNode(id: string) {
+const isInitialMapLoad = ref(true)
+const is3DMode = ref(true)
+
+function toggle3DMode() {
+  is3DMode.value = !is3DMode.value
+}
+
+function focusOnNode(id: string, targetZoom = 1.05) {
   const b = buildings.value.find((item) => item.id === id)
   if (b && b.x !== undefined && b.y !== undefined) {
-    focusOn(b.x, b.y, 1.05)
+    // Smooth camera navigation centered on the tower with gentle focus (1.05x) so context is not lost
+    focusOn(b.x, b.y - 50, targetZoom)
+    activePunchedNodeId.value = id
+    setTimeout(() => {
+      if (activePunchedNodeId.value === id) {
+        activePunchedNodeId.value = null
+      }
+    }, 2400)
   }
 }
 
@@ -158,120 +179,197 @@ function focusOnNode(id: string) {
 watch(
   () => graphStore.selectedEntityId,
   (newId) => {
-    if (newId) {
-      focusOnNode(newId)
+    if (!newId) return
+
+    if (isInitialMapLoad.value) {
+      // On initial map load, do not jerk zoom into 1.25x and hide other buildings!
+      // Instead, frame the full realm so every single building is 100% visible!
+      isInitialMapLoad.value = false
+      nextTick(() => {
+        fitTownView()
+      })
+      // Highlight the first building briefly without camera disruption
+      activePunchedNodeId.value = newId
+      setTimeout(() => {
+        if (activePunchedNodeId.value === newId) {
+          activePunchedNodeId.value = null
+        }
+      }, 2000)
+    } else {
+      // Subsequent selections (user clicking Next/Prev or clicking a tower):
+      focusOnNode(newId, 1.05)
     }
-  },
-  { immediate: true }
+  }
 )
+
+function fitTownView() {
+  fitTown(buildings.value)
+}
+
+watch(
+  () => graphStore.nodes.length,
+  () => {
+    nextTick(() => {
+      fitTownView()
+    })
+  }
+)
+
+onMounted(() => {
+  nextTick(() => {
+    setTimeout(() => {
+      fitTownView()
+    }, 150)
+  })
+})
 
 defineExpose({
   zoomIn,
   zoomOut,
-  recenter,
+  recenter: fitTownView,
+  fitTownView,
   focusOnNode,
+  is3DMode,
+  toggle3DMode,
 })
 </script>
 
 <template>
   <div
-    class="w-full h-full bg-[#EBF7F2] overflow-hidden cursor-grab active:cursor-grabbing select-none relative"
+    class="w-full h-full overflow-hidden cursor-grab active:cursor-grabbing select-none relative bg-gradient-to-br from-[#E0F2FE] via-[#F0FDF4] to-[#FAF5FF]"
     @mousedown="onMouseDown"
     @wheel="onWheel"
   >
-    <!-- Background subtle geometric dot grid -->
+    <!-- Radiant daylight sunbeam overlay -->
     <div
-      class="absolute inset-0 pointer-events-none opacity-30"
-      style="background-image: radial-gradient(rgba(13, 148, 136, 0.15) 1.5px, transparent 1.5px); background-size: 36px 36px;"
+      class="absolute inset-0 pointer-events-none"
+      style="background: radial-gradient(circle at 50% 12%, rgba(254, 240, 138, 0.25) 0%, rgba(56, 189, 248, 0.14) 45%, transparent 75%);"
     ></div>
 
-    <svg
-      ref="svgRef"
-      class="w-[2048px] h-[1400px] transform-gpu transition-transform"
-      :class="isDragging ? 'duration-0' : 'duration-300 ease-out'"
-      :style="{ transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})` }"
-      viewBox="0 0 2048 1400"
+    <!-- Soft floating 3D ambient cloud layers -->
+    <div class="absolute inset-0 pointer-events-none overflow-hidden opacity-40">
+      <div class="cloud-drift-1 absolute w-[600px] h-[220px] rounded-full bg-white/60 blur-3xl -top-12 left-[10%]"></div>
+      <div class="cloud-drift-2 absolute w-[720px] h-[260px] rounded-full bg-white/50 blur-3xl top-1/3 -right-24"></div>
+    </div>
+
+    <!-- 3D Perspective Frustum Stage -->
+    <div
+      class="w-full h-full flex items-center justify-center pointer-events-none"
+      :style="{
+        perspective: '1400px',
+        perspectiveOrigin: '50% 42%',
+      }"
     >
-      <defs>
-        <!-- Soft Glow Filter for Floating Gems and Domes (page2 style) -->
-        <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="8" result="glow" />
-          <feComposite in="SourceGraphic" in2="glow" operator="over" />
-        </filter>
-
-        <!-- Unidirectional Forward Arrowhead (lower to higher step) -->
-        <marker
-          id="pathArrowEnd"
-          viewBox="0 0 14 14"
-          refX="11"
-          refY="7"
-          markerWidth="8"
-          markerHeight="8"
-          orient="auto"
+      <div
+        class="w-[2048px] h-[1400px] pointer-events-auto transition-transform"
+        :class="isDragging ? 'duration-0' : 'duration-500 ease-out'"
+        :style="{
+          transformStyle: 'preserve-3d',
+          transform: is3DMode ? 'rotateX(24deg) rotateZ(-6deg)' : 'none',
+          transformOrigin: '50% 50%',
+          filter: is3DMode ? 'drop-shadow(0 35px 50px rgba(15, 23, 42, 0.18))' : 'none',
+        }"
+      >
+        <svg
+          ref="svgRef"
+          class="w-[2048px] h-[1400px] transform-gpu transition-transform"
+          :class="isDragging ? 'duration-0' : 'duration-300 ease-out'"
+          :style="{ transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})` }"
+          viewBox="0 0 2048 1400"
         >
-          <path d="M 2 2 L 12 7 L 2 12 L 5 7 Z" fill="#0D9488" stroke="#FFFFFF" stroke-width="0.8" />
-        </marker>
+          <defs>
+            <!-- Soft Glow Filter for Floating Gems and Domes -->
+            <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="8" result="glow" />
+              <feComposite in="SourceGraphic" in2="glow" operator="over" />
+            </filter>
 
-        <!-- Interchangeable Forward Arrowhead -->
-        <marker
-          id="pathArrowInterchangeableEnd"
-          viewBox="0 0 14 14"
-          refX="11"
-          refY="7"
-          markerWidth="8"
-          markerHeight="8"
-          orient="auto"
-        >
-          <path d="M 2 2 L 12 7 L 2 12 L 5 7 Z" fill="#F59E0B" stroke="#FFFFFF" stroke-width="0.8" />
-        </marker>
+            <!-- 3D Isometric Diamond Terrain Grid -->
+            <pattern id="isoGrid" width="64" height="36.95" patternUnits="userSpaceOnUse">
+              <path d="M 32 0 L 64 18.475 L 32 36.95 L 0 18.475 Z" fill="none" stroke="#059669" stroke-width="0.85" stroke-opacity="0.16" />
+            </pattern>
 
-        <!-- Interchangeable Backward Arrowhead (reverse at start) -->
-        <marker
-          id="pathArrowInterchangeableStart"
-          viewBox="0 0 14 14"
-          refX="3"
-          refY="7"
-          markerWidth="8"
-          markerHeight="8"
-          orient="auto"
-        >
-          <path d="M 12 2 L 2 7 L 12 12 L 9 7 Z" fill="#F59E0B" stroke="#FFFFFF" stroke-width="0.8" />
-        </marker>
+            <!-- 3D Plateau Cliff Face Vertical Gradient -->
+            <linearGradient id="cliffGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#94A3B8" />
+              <stop offset="50%" stop-color="#64748B" />
+              <stop offset="100%" stop-color="#334155" />
+            </linearGradient>
 
-        <!-- Lush Grass Linear Gradient -->
-        <linearGradient id="grassGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#E9F7EF" />
-          <stop offset="50%" stop-color="#DEF3E7" />
-          <stop offset="100%" stop-color="#D4ECE0" />
-        </linearGradient>
+            <!-- Unidirectional Forward Arrowhead (lower to higher step) - Crisp, elevated & high-visibility -->
+            <marker
+              id="pathArrowEnd"
+              viewBox="0 0 16 16"
+              refX="13"
+              refY="8"
+              markerWidth="13"
+              markerHeight="13"
+              orient="auto"
+            >
+              <path d="M 2 2 L 14 8 L 2 14 L 5 8 Z" fill="#0D9488" stroke="#FFFFFF" stroke-width="1.2" />
+            </marker>
 
-        <!-- Vibrant Crystal & Roof Gradients -->
-        <linearGradient id="cyanCrystalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#67E8F9" />
-          <stop offset="50%" stop-color="#06B6D4" />
-          <stop offset="100%" stop-color="#0891B2" />
-        </linearGradient>
+            <!-- Interchangeable Forward Arrowhead (Two-way flex order) -->
+            <marker
+              id="pathArrowInterchangeableEnd"
+              viewBox="0 0 16 16"
+              refX="13"
+              refY="8"
+              markerWidth="13"
+              markerHeight="13"
+              orient="auto"
+            >
+              <path d="M 2 2 L 14 8 L 2 14 L 5 8 Z" fill="#F59E0B" stroke="#FFFFFF" stroke-width="1.2" />
+            </marker>
 
-        <linearGradient id="purpleRoofGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#C084FC" />
-          <stop offset="100%" stop-color="#7E22CE" />
-        </linearGradient>
+            <!-- Interchangeable Backward Arrowhead (Two-way flex order) -->
+            <marker
+              id="pathArrowInterchangeableStart"
+              viewBox="0 0 16 16"
+              refX="3"
+              refY="8"
+              markerWidth="13"
+              markerHeight="13"
+              orient="auto"
+            >
+              <path d="M 14 2 L 2 8 L 14 14 L 11 8 Z" fill="#F59E0B" stroke="#FFFFFF" stroke-width="1.2" />
+            </marker>
 
-        <linearGradient id="amberDomeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#FCD34D" />
-          <stop offset="70%" stop-color="#F59E0B" />
-          <stop offset="100%" stop-color="#D97706" />
-        </linearGradient>
+            <!-- Vibrant Lush Grass Linear Gradient -->
+            <linearGradient id="grassGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#F0FDF4" />
+              <stop offset="40%" stop-color="#DCFCE7" />
+              <stop offset="100%" stop-color="#BBF7D0" />
+            </linearGradient>
 
-        <linearGradient id="pathTrailGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#06B6D4" />
-          <stop offset="50%" stop-color="#10B981" />
-          <stop offset="100%" stop-color="#F59E0B" />
-        </linearGradient>
-      </defs>
+            <!-- Vibrant Crystal & Roof Gradients -->
+            <linearGradient id="cyanCrystalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#67E8F9" />
+              <stop offset="50%" stop-color="#06B6D4" />
+              <stop offset="100%" stop-color="#0891B2" />
+            </linearGradient>
 
-      <!-- Beautiful Lush Ground Base -->
+            <linearGradient id="purpleRoofGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#C084FC" />
+              <stop offset="100%" stop-color="#7E22CE" />
+            </linearGradient>
+
+            <linearGradient id="amberDomeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#FCD34D" />
+              <stop offset="70%" stop-color="#F59E0B" />
+              <stop offset="100%" stop-color="#D97706" />
+            </linearGradient>
+
+            <linearGradient id="pathTrailGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#06B6D4" />
+              <stop offset="50%" stop-color="#10B981" />
+              <stop offset="100%" stop-color="#F59E0B" />
+            </linearGradient>
+          </defs>
+
+      <!-- Beautiful Lush Ground Base & 3D Isometric Diamond Terrain -->
       <rect fill="url(#grassGrad)" width="2048" height="1400" />
+      <rect fill="url(#isoGrid)" width="2048" height="1400" />
 
       <!-- District Turf Platforms (Rich Island Zones) -->
       <DistrictTurf
@@ -306,62 +404,9 @@ defineExpose({
         :target-pos="r.targetPos"
       />
 
-      <!-- SEQUENTIAL LEARNING PATH TRAIL (Directional Arrows: Unidirectional vs. Interchangeable) -->
-      <g v-if="learningPathSegments.length > 0" class="pointer-events-none">
-        <g v-for="seg in learningPathSegments" :key="seg.id">
-          <!-- Outer glow halo -->
-          <path
-            :d="seg.pathD"
-            fill="none"
-            :stroke="seg.isInterchangeable ? '#F59E0B' : '#38BDF8'"
-            :stroke-width="seg.isCurrent ? 14 : 9"
-            :stroke-opacity="seg.isCurrent ? 0.35 : 0.18"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-
-          <!-- Luminous animated stream with directional markers -->
-          <path
-            :d="seg.pathD"
-            fill="none"
-            :stroke="seg.isInterchangeable ? '#F59E0B' : '#0D9488'"
-            :stroke-width="seg.isCurrent ? 5 : 3.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="energy-stream"
-            :marker-end="seg.isInterchangeable ? 'url(#pathArrowInterchangeableEnd)' : 'url(#pathArrowEnd)'"
-            :marker-start="seg.isInterchangeable ? 'url(#pathArrowInterchangeableStart)' : undefined"
-          />
-
-          <!-- Midpoint Indicator Badge -->
-          <g :transform="`translate(${seg.midX}, ${seg.midY})`">
-            <rect
-              :x="seg.isInterchangeable ? -48 : -38"
-              y="-10"
-              :width="seg.isInterchangeable ? 96 : 76"
-              height="20"
-              rx="10"
-              :fill="seg.isInterchangeable ? '#78350F' : '#042F2E'"
-              :stroke="seg.isInterchangeable ? '#F59E0B' : '#0D9488'"
-              stroke-width="1.2"
-              class="shadow-md"
-            />
-            <text
-              x="0"
-              y="3.5"
-              text-anchor="middle"
-              class="text-[9px] font-mono font-bold fill-white tracking-wider uppercase select-none"
-            >
-              {{ seg.isInterchangeable ? `⇄ ${seg.sourceStep} & ${seg.targetStep} Flex` : `Step ${seg.sourceStep} → ${seg.targetStep}` }}
-            </text>
-          </g>
-        </g>
-      </g>
-
-
-      <!-- Tower Buildings Layer (Positioned with plenty of breathing room) -->
+      <!-- Tower Buildings Layer (Rendered with 3D Depth Sorting: Back-to-Front) -->
       <TowerBuilding
-        v-for="b in buildings"
+        v-for="b in sortedBuildings"
         :id="`building-${b.id}`"
         :key="b.id"
         :x="b.x"
@@ -373,9 +418,64 @@ defineExpose({
         :path-order="b.pathOrder"
         :is-selected="graphStore.selectedEntityId === b.id"
         :is-path-active="graphStore.currentPathNodeId === b.id"
+        :is-punched="activePunchedNodeId === b.id"
         @click="onBuildingClick(b.id)"
       />
-    </svg>
+
+      <!-- ELEVATED SEQUENTIAL LEARNING PATH TRAIL (Arrows & Badges Never Hide Behind Buildings) -->
+      <g v-if="learningPathSegments.length > 0" class="pointer-events-none">
+        <g v-for="seg in learningPathSegments" :key="seg.id">
+          <!-- Outer glow halo -->
+          <path
+            :d="seg.pathD"
+            fill="none"
+            :stroke="seg.isInterchangeable ? '#F59E0B' : '#38BDF8'"
+            :stroke-width="seg.isCurrent ? 14 : 9"
+            :stroke-opacity="seg.isCurrent ? 0.4 : 0.22"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+
+          <!-- Luminous animated stream with crisp elevated directional markers -->
+          <path
+            :d="seg.pathD"
+            fill="none"
+            :stroke="seg.isInterchangeable ? '#F59E0B' : '#0D9488'"
+            :stroke-width="seg.isCurrent ? 5.5 : 4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="energy-stream"
+            :marker-end="seg.isInterchangeable ? 'url(#pathArrowInterchangeableEnd)' : 'url(#pathArrowEnd)'"
+            :marker-start="seg.isInterchangeable ? 'url(#pathArrowInterchangeableStart)' : undefined"
+          />
+
+          <!-- Midpoint Indicator Badge -->
+          <g :transform="`translate(${seg.midX}, ${seg.midY})`">
+            <rect
+              :x="seg.isInterchangeable ? -50 : -40"
+              y="-11"
+              :width="seg.isInterchangeable ? 100 : 80"
+              height="22"
+              rx="11"
+              :fill="seg.isInterchangeable ? '#78350F' : '#042F2E'"
+              :stroke="seg.isInterchangeable ? '#F59E0B' : '#0D9488'"
+              stroke-width="1.4"
+              class="shadow-md"
+            />
+            <text
+              x="0"
+              y="4"
+              text-anchor="middle"
+              class="text-[9.5px] font-mono font-extrabold fill-white tracking-wider uppercase select-none"
+            >
+              {{ seg.isInterchangeable ? `⇄ ${seg.sourceStep} & ${seg.targetStep} Flex` : `Step ${seg.sourceStep} → ${seg.targetStep}` }}
+            </text>
+          </g>
+        </g>
+      </g>
+      </svg>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -393,6 +493,32 @@ defineExpose({
 .highlighted {
   opacity: 1 !important;
   filter: drop-shadow(0 0 20px rgba(56, 189, 248, 0.65)) !important;
+}
+
+@keyframes cloudDrift1 {
+  0%, 100% {
+    transform: translateX(0px) translateY(0px);
+  }
+  50% {
+    transform: translateX(80px) translateY(20px);
+  }
+}
+
+@keyframes cloudDrift2 {
+  0%, 100% {
+    transform: translateX(0px) translateY(0px);
+  }
+  50% {
+    transform: translateX(-100px) translateY(-30px);
+  }
+}
+
+.cloud-drift-1 {
+  animation: cloudDrift1 26s ease-in-out infinite;
+}
+
+.cloud-drift-2 {
+  animation: cloudDrift2 32s ease-in-out infinite;
 }
 
 @keyframes particle-run {

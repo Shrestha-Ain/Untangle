@@ -57,16 +57,61 @@ export function usePanZoom() {
   function recenter() {
     translateX.value = -180
     translateY.value = -160
-    scale.value = 1
+    scale.value = 0.85
   }
 
-  function focusOn(targetX: number, targetY: number, targetScale = 1) {
+  function fitTown(buildingsList: Array<{ x: number; y: number }>) {
+    if (!buildingsList || buildingsList.length === 0) {
+      recenter()
+      return
+    }
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    buildingsList.forEach((b) => {
+      if (b.x !== undefined && b.y !== undefined) {
+        minX = Math.min(minX, b.x)
+        maxX = Math.max(maxX, b.x)
+        minY = Math.min(minY, b.y)
+        maxY = Math.max(maxY, b.y)
+      }
+    })
+
+    if (!isFinite(minX) || !isFinite(maxX)) {
+      recenter()
+      return
+    }
+
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+
+    // Reserve comfortable margins so no buildings are occluded by top stepper or side panels
+    // We reserve ~340px on the right for the topic drawer and ~80px on the left
+    const availableW = Math.max(320, vw - 360)
+    const availableH = Math.max(300, vh - 180)
+
+    const townW = Math.max(200, maxX - minX + 280)
+    const townH = Math.max(200, maxY - minY + 320)
+
+    // Calculate optimal scale so that ALL buildings are 100% visible
+    const fitScale = Math.min(0.88, Math.max(0.42, Math.min(availableW / townW, availableH / townH)))
+    scale.value = Number(fitScale.toFixed(2))
+
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+
+    // Center in the visible viewport (offset slightly to the left to give comfortable breathing room from the right card)
+    const viewportCenterX = (vw - 160) / 2
+    translateX.value = Math.round(viewportCenterX - centerX * scale.value)
+    translateY.value = Math.round(vh / 2 - centerY * scale.value + 40)
+  }
+
+  function focusOn(targetX: number, targetY: number, targetScale = 1.15) {
     scale.value = targetScale
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
-    // Center (targetX, targetY) inside the viewport, offset slightly to left for right drawer
-    translateX.value = Math.round(vw / 2 - targetX * targetScale - 60)
-    translateY.value = Math.round(vh / 2 - targetY * targetScale)
+    // Center (targetX, targetY) inside the viewport with comfortable padding
+    translateX.value = Math.round(vw / 2 - targetX * targetScale)
+    translateY.value = Math.round(vh / 2 - targetY * targetScale + 40)
   }
 
   return {
@@ -79,6 +124,7 @@ export function usePanZoom() {
     zoomIn,
     zoomOut,
     recenter,
+    fitTown,
     focusOn,
   }
 }

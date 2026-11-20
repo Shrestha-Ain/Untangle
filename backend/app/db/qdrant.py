@@ -62,7 +62,7 @@ def init_qdrant_collections(
             client = get_qdrant_client()
             # Verify connectivity
             client.get_collections()
-        except (httpx.HTTPError, OSError, RuntimeError, ValueError) as exc:
+        except Exception as exc:
             logger.warning(
                 "Qdrant connectivity check deferred (Qdrant not reachable yet): %s", exc
             )

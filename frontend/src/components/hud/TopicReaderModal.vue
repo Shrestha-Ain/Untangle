@@ -70,7 +70,7 @@ function proceedNext() {
         <!-- ⚡ 2-Minute High-Yield Exam Gist Card (Exam Rush Takeaway) -->
         <div
           v-if="dossier.exam_gist"
-          class="rounded-2xl border-2 border-[#DDD0B0] bg-gradient-to-br from-[#FFFDF9] to-[#F7F2E7] p-5 shadow-xs space-y-3.5"
+          class="rounded-2xl border-2 border-[#DDD0B0] bg-[#FFFBEB] p-5 shadow-xs space-y-3.5"
         >
           <div class="flex items-center justify-between border-b border-[#DDD0B0]/60 pb-2.5">
             <div class="flex items-center gap-2">

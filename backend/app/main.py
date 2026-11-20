@@ -10,6 +10,7 @@ runs startup/shutdown tasks (JWKS cache warmup, table creation).
 """
 
 import logging
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -47,22 +48,23 @@ async def lifespan(app: FastAPI):
     # ── Startup ───────────────────────────────────────────────────────
     logger.info("Starting %s (%s)", settings.project_name, settings.environment)
 
-    # Create tables — safe to call repeatedly, only creates missing tables
-    try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables ensured")
-    except SQLAlchemyError as exc:
-        logger.warning(
-            "Database table creation deferred (PostgreSQL not reachable yet): %s", exc
-        )
+    if "pytest" not in sys.modules:
+        # Create tables — safe to call repeatedly, only creates missing tables
+        try:
+            Base.metadata.create_all(bind=engine)
+            logger.info("Database tables ensured")
+        except SQLAlchemyError as exc:
+            logger.warning(
+                "Database table creation deferred (PostgreSQL not reachable yet): %s", exc
+            )
 
-    # Initialize graph and vector store schemas
-    init_neo4j_schema()
-    init_qdrant_collections()
+        # Initialize graph and vector store schemas
+        init_neo4j_schema()
+        init_qdrant_collections()
 
-    # Pre-warm JWKS cache
-    jwks_manager = get_jwks_manager()
-    jwks_manager.warmup()
+        # Pre-warm JWKS cache
+        jwks_manager = get_jwks_manager()
+        jwks_manager.warmup()
 
     yield
 

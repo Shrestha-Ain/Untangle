@@ -273,6 +273,68 @@ flowchart LR
 
 ---
 
+### G. Study Progress & Topic Completion Tracking Engine (`progress.ts`, `StudyProgressModal.vue`)
+- **Global Study Progress State (`useProgressStore`)**:
+  - Automatically initialises and tracks completion states per document, persisted locally in `localStorage` (`untangle_study_progress`).
+  - Calculates global mastery metric:
+    $$\text{Completion Percentage} = \frac{|\text{Completed Topics}|}{\max(1, |\text{Total Topics}|)} \times 100$$
+  - Assigns dynamic percentage weight per curriculum step:
+    $$\text{Topic Weight} = \frac{100}{|\text{Total Steps}|}$$
+- **HUD & Stepper Integration**:
+  - Real-time indicator pill (`[ 📊 {percentage}% Mastered ]`) in `TownNavBar.vue` providing immediate visual feedback.
+  - Interactive mastery toggle button (`[ ✓ Mark Done / Mastered ]`) embedded in `LearningPathStepper.vue` that auto-advances the student to the next prerequisite milestone.
+- **Comprehensive Topic Breakdown Modal (`StudyProgressModal.vue`)**:
+  - Visual circular completion gauge and animated solid progress bar.
+  - Detailed topic-by-topic breakdown table displaying topic names, prerequisite step numbers, completion percentage weights, and individual checkboxes.
+  - Direct 3D camera quick-focus buttons (`near_me`) allowing students to glide the viewport directly to any tower on the map.
+  - Bulk actions for marking all topics completed or resetting document progress.
+
+---
+
+### H. Differentiated Capabilities: Research Papers vs. College Study Materials
+- **Architectural Separation**:
+  - When a document is uploaded, its `source_mode` flag (`research` vs `study`) dictates downstream parsing, graph modeling, AI system prompts, and UI feature cards.
+- **Research Paper Mode (`source_mode === 'research'`)**:
+  - **Theoretical Novelty & Breakthroughs**: Extracts core architectural innovations (e.g. $O(1)$ sequential operations via parallel matrix multiplication vs. $O(N)$ recurrence in traditional RNNs/LSTMs).
+  - **Mathematical Formulations**: Rigorous display of equations ($\text{MultiHead}(Q,K,V) = \text{Concat}(\text{head}_1, \dots, \text{head}_h)W^O$).
+  - **Empirical Ablation Benchmarks**: Visual metrics detailing ablation study results, parameter scaling numbers, and BLEU evaluation scores.
+  - **Active BibTeX & arXiv Bridge**: Auto-generated formal academic citations with a one-click clipboard copy button.
+- **College Study Material Mode (`source_mode === 'study'`)**:
+  - **Syllabus & Topic Mastery Tracking**: Real-time topic completion toggles synced with the course mastery progress bar.
+  - **Intuitive Analogies & Mental Models**: Practical real-world metaphors that simplify abstract engineering principles.
+  - **Implementation Snippets**: Concrete C kernel system calls (`fork()`, `execvp()`, `waitpid()`) and runnable algorithms.
+  - **High-Yield Professor Exam Traps**: Explicit warnings highlighting trick questions, edge cases, and exam pitfalls commonly tested in university finals.
+
+---
+
+### I. Movable & Resizable Floating UI Architecture (`useDraggableResizable.ts`)
+- **Viewport Bounds & Drag Handling**:
+  - `useDraggableResizable` composable manages 2D pixel coordinates with screen-edge collision clamping.
+  - Dragging is restricted to designated drag grips (`.drag-handle`) to prevent accidental repositioning during interaction.
+- **Multi-Edge & Multi-Corner Resizing**:
+  - Supports 8 distinct resize vectors (N, S, E, W, NE, NW, SE, SW) with configurable minimum and maximum dimensions (`minWidth`, `minHeight`, `maxWidth`, `maxHeight`).
+  - Automatically calculates aspect ratio and position offsets during top and left border manipulations.
+- **Hover-Only Indicator Tags**:
+  - Replaced cluttering static labels with hover-activated indicator tags that appear only when the mouse hovers over drag grips or resize borders.
+
+---
+
+### J. Realistic 7-Chapter Walkthrough Video Simulation Engine (`DemoVideoModal.vue`)
+- **Live 3D WebGL Integration**:
+  - Directly embeds the full Three.js `TownCanvas3D.vue` engine into the walkthrough player with complete 360° orbital camera movement, stepped citadels, laser beacons, and elevated energy viaducts.
+- **7 Pedagogical Walkthrough Chapters**:
+  1. *Authentication & Dual-Mode Selection*: Research Mode vs. Study Mode selection.
+  2. *Document Ingestion Pipeline*: PDF dropzone and 4-phase GraphRAG processing telemetry.
+  3. *The Actual 3D Knowledge Realm*: Unobstructed 360° orbital camera rotation and interactive mouse orbit/zoom controls.
+  4. *AI Replies After Ingestion (Core Highlight)*: Side-by-side interactive tab toggle showing the distinct responses of Regulus AI for Research Papers (novelty, math, ablation, BibTeX) vs. College Study Materials (analogies, C code, exam traps, follow-up chips).
+  5. *Top Learning Path Slider*: Prerequisite stepper traversal with 3D camera auto-focus glide.
+  6. *Study Progress & Topic Breakdown*: Live completion percentage gauge, mastery progress bar, and topic checklist.
+  7. *Quiz Master, Personal Notes, Theme Sync & Instant Launch*: Gamified 4-choice questions, markdown notes export, live dark/light mode toggle, and direct 3D launch.
+- **Soothing Female Voice Narration Pipeline**:
+  - Speech synthesis pipeline prioritizing natural female voices (Microsoft Jenny/Aria, Google Female) with gentle pacing (`pitch: 1.10`, `rate: 0.96`), synchronized subtitles, and audio visualizer.
+
+---
+
 ## 5. Comprehensive Codebase Directory Map
 
 ### Backend (`/backend/app`)
@@ -346,15 +408,23 @@ frontend/src/
 │   ├── documents.ts            # Documents list, active document, upload actions
 │   ├── graph.ts                # Nodes, edges, communities, learning path, dossier, exam gist
 │   ├── chat.ts                 # Chat sessions, messages, active citations
-│   └── player.ts               # Scholar XP, level, unlocked districts
+│   ├── player.ts               # Scholar XP, level, unlocked districts
+│   ├── progress.ts             # Study completion percentage & topic mastery tracking
+│   ├── quiz.ts                 # Gamified topic & document multiple-choice quizzes
+│   ├── notes.ts                # Persistent topic & document markdown notes with export
+│   └── theme.ts                # Global Dark/Light mode theme state & persistence
+├── utils/
+│   ├── pedagogicalKnowledge.ts # Grounded curriculum knowledge engine & interactive answers
+│   └── markdownRenderer.ts     # Zero-dependency rich Markdown & pedagogical callout card parser
 ├── composables/
 │   ├── useTownLayout.ts        # Isometric coordinate projection & spiral layout
-│   ├── usePanZoom.ts           # Canvas drag, zoom, and recenter gestures
+│   ├── usePanZoom.ts           # Canvas drag, zoom, fitTown bounding box calculation, and focusOn
+│   ├── useDraggableResizable.ts# Reusable drag-and-drop & multi-edge resizing engine for floating dialogs
 │   ├── useGraphHighlight.ts    # Node/edge illumination and active filter matching
 │   └── useWebSocket.ts         # Resilient WebSocket connection wrapper
 ├── views/
 │   ├── HomeView.vue            # Dashboard with realms, upload panel, construction progress
-│   ├── TownExplorerView.vue    # Full-screen isometric canvas + HUD overlays
+│   ├── TownExplorerView.vue    # Full-screen isometric canvas + non-occluding HUD overlays
 │   ├── LoginView.vue           # Clerk SignIn screen
 │   └── RegisterView.vue        # Clerk SignUp screen
 ├── components/
@@ -362,22 +432,30 @@ frontend/src/
 │   │   ├── TopHudHeader.vue    # App header, connection badge ('Backend Synced' / 'Local Dev')
 │   │   ├── SourceUploadPanel.vue # PDF/TXT drag-and-drop uploader with mode selector
 │   │   ├── RealmCard.vue       # Ingested realm card with stats and explore button
+│   │   ├── MapCard.vue         # Knowledge map library card with stats and launch button
 │   │   ├── ConstructionPipeline.vue # Live progress bar for documents being processed
-│   │   └── FilterChips.vue     # Mode filter toggle (Research vs Study)
-│   ├── town/                   # Isometric Canvas & SVG Elements
-│   │   ├── TownCanvas.vue      # Main SVG viewport with pan/zoom container
-│   │   ├── TowerBuilding.vue   # Concept building / tower with heights & labels
+│   │   ├── IngestionProgress.vue# Document processing status & pipeline telemetry
+│   │   ├── FilterChips.vue     # Mode filter toggle (Research vs Study)
+│   │   ├── DemoVideoModal.vue  # 7-chapter walkthrough video with live 3D town & female narration
+│   │   └── InteractiveSparkles.vue # 60fps cursor sparkle trail and burst particles
+│   ├── town/                   # True WebGL 3D Town Canvas & 2.5D Isometric Components
+│   │   ├── TownCanvas3D.vue    # Full WebGL 3D Town Engine with Three.js OrbitControls (360° orbit, pan, zoom, stepped monoliths, road tubes, and projected 2D HTML step badges)
+│   │   ├── TownCanvas.vue      # Master 2.5D SVG canvas with depth-sorted back-to-front rendering & elevated arrows
+│   │   ├── TowerBuilding.vue   # Citadel Monolith & Satellite Outpost towers with radar halos & skyward lasers
 │   │   ├── EnergyRoad.vue      # Animated connector road between buildings
-│   │   ├── DistrictTurf.vue    # Community background polygonal turf
+│   │   ├── DistrictTurf.vue    # Community background polygonal turf with stone cliff edges
 │   │   ├── TreeCluster.vue     # Environmental foliage decorations
 │   │   └── FloatingMascot.vue  # Interactive guide avatar floating over the town
 │   └── hud/                    # Overlays & Interaction Panels
-│       ├── TownNavBar.vue      # Canvas navigation controls, search, zoom buttons
-│       ├── RegulusPanel.vue    # Floating AI Guide chat drawer with citations
-│       ├── BuildingInfoCard.vue# Right-side drawer for inspecting selected nodes
-│       ├── LearningPathStepper.vue # Stepper for sequential prerequisite traversal
+│       ├── TownNavBar.vue      # Canvas navigation controls, search, zoom, 3D Iso/Top camera toggles, dark/light theme switch, Quiz & Notes buttons
+│       ├── RegulusPanel.vue    # Movable & resizable AI Guide chat window with zero-gradient solid cards, failproof cleaning, collapsible dock pill, hover-only drag tags & topic-first scoping
+│       ├── BuildingInfoCard.vue# Movable & resizable drawer for inspecting selected nodes with minimize pill, hover-only drag tags, Quiz & Notes shortcuts
+│       ├── LearningPathStepper.vue # Movable & resizable stepper for sequential prerequisite traversal with inter-step directional indicators and hover-only drag tags
 │       ├── TopicReaderModal.vue# Deep-read topic dossier with excerpts & formulas
-│       └── ExamGistModal.vue   # High-yield exam cheat sheet modal
+│       ├── ExamGistModal.vue   # High-yield exam cheat sheet modal
+│       ├── QuizModal.vue       # Interactive gamified Quiz Master (Topic & Full PDF Exam)
+│       ├── NotesDrawer.vue     # Personal topic and document notes slide-over with Markdown export
+│       └── StudyProgressModal.vue # Real-time study completion percentage gauge and topic mastery breakdown table
 ```
 
 ---
@@ -432,5 +510,10 @@ To keep this documentation accurate and valuable:
 | Date | Author / Agent | Changes Made | Files Modified |
 |---|---|---|---|
 | **2026-09-30** | Antigravity AI | Initial creation of comprehensive system architecture gist, component blueprints, and pipeline sequences. Documented system clock skew fix and Google OAuth `at_hash` bypass. | `ARCHITECTURE.md`, `README.md`, `security.py`, `client.ts`, `deps.py`, `TopHudHeader.vue` |
-| | | *(Future changes will be appended here)* | |
+| **2026-11-10** | Antigravity AI | Pedagogical AI chatbot overhaul (analogies, formulas, exam traps), Auto-Focus camera with zoom punch & radiant radar ring, elevated unidirectional arrows, true 3D isometric depth-sorting, Quiz Master module, and Personal Notes system with markdown export. | `pedagogicalKnowledge.ts`, `chat.ts`, `RegulusPanel.vue`, `TownCanvas.vue`, `TowerBuilding.vue`, `usePanZoom.ts`, `quiz.ts`, `QuizModal.vue`, `notes.ts`, `NotesDrawer.vue`, `BuildingInfoCard.vue`, `TownNavBar.vue` |
+| **2026-11-10** | Antigravity AI | Clean LLM string sanitization (removed `[{'type': 'text'}]` Python AST artifacts and meta-commentary), zero-dependency rich Markdown & pedagogical callout card renderer, non-occluding cartography with `fitTown` bounding box padding, default-collapsed Regulus dock pill, minimizable BuildingInfoCard pill, and Fit Whole Map HUD control. | `markdownRenderer.ts`, `RegulusPanel.vue`, `BuildingInfoCard.vue`, `TownCanvas.vue`, `usePanZoom.ts`, `chat.ts`, `client.py`, `chat.py`, `prompts.py`, `TownNavBar.vue`, `README.md`, `ARCHITECTURE.md` |
+| **2026-11-10** | Antigravity AI | Full Movable & Resizable Dialog Architecture (`useDraggableResizable` composable with multi-edge resize, grip dragging, reset snaps), True 3D WebGL Three.js Town Engine (`TownCanvas3D.vue` with 360° OrbitControls, raycast selection, 3D energy tubes, floating crystals, projected step badges), elimination of all gradients in favor of punchy solid color blocking, and bulletproof chatbot response cleaning (stripping `[{'type': 'text'}]` Python wrappers, unescaping literal `\n`, removing robotic apologies). | `TownCanvas3D.vue`, `TownExplorerView.vue`, `markdownRenderer.ts`, `RegulusPanel.vue`, `BuildingInfoCard.vue`, `LearningPathStepper.vue`, `HomeView.vue`, `TopHudHeader.vue`, `TopicReaderModal.vue`, `client.py`, `chat_service.py`, `chat.py`, `README.md`, `ARCHITECTURE.md` |
+| **2026-11-11** | Antigravity AI | Bluish Theme Synchronization & End-to-End Chatbot Pedagogical Overhaul: Unified entire app into a soothing bluish aesthetic across both Dark Mode (Midnight Slate-Navy `#0B1120`, `#0F172A`, `#111C35`, Sapphire `#2563EB`, Sky Cyan `#38BDF8`) and Light Mode (Frost Blue `#F0F4F8`, pure white elevated cards, cobalt blue accents). Streamlined front page copy to be punchy and eye-catching without overwhelming text walls. Completely resolved raw AST string serialization (`[{'type': 'text', 'text': ...}]`), escaped newlines (`\n\n`), and robotic disclaimers via multi-variation regex in both backend (`clean_llm_text`) and frontend (`cleanAssistantContent`). Upgraded Markdown renderer with live clickable follow-up question chips (`👉`) and structured pedagogical callout cards (💡 Analogy, ⚙️ Mechanism, 🗺️ Position, ⚠️ Exam Trap, 💬 Check). | `style.css`, `theme.ts`, `HomeView.vue`, `TopHudHeader.vue`, `SourceUploadPanel.vue`, `MapCard.vue`, `StatCounter.vue`, `FilterChips.vue`, `TownCanvas3D.vue`, `TownExplorerView.vue`, `TownNavBar.vue`, `RegulusPanel.vue`, `markdownRenderer.ts`, `client.py`, `prompts.py`, `chat.py`, `test_llm_client.py`, `README.md`, `ARCHITECTURE.md` |
+| **2026-11-11** | Antigravity AI | Integrated Actual Live 3D WebGL Map into Video Walkthrough & Soothing Female Narrator: Embedded the real Three.js `TownCanvas3D.vue` engine directly inside `DemoVideoModal.vue`. In Chapter 3 ("The Actual 3D Knowledge Realm"), all occluding dialog cards were removed to provide 100% full-stage visibility of the live 3D town with 360° orbital camera rotation, flat-roof stepped architectural towers, laser beacons, elevated energy roads with moving photons, and interactive mouse orbit/zoom controls. In Chapter 4, synchronized the stepper with 3D camera auto-focus glide into the target tower. Added a prioritized soothing female voice selection pipeline (Microsoft Jenny/Aria/Sonia, Google UK/US Female, Samantha) with calm cadence (`pitch: 1.10`, `rate: 0.96`), and verified all frontend builds and backend tests pass. | `DemoVideoModal.vue`, `TownCanvas3D.vue`, `HomeView.vue`, `router/index.ts`, `README.md`, `ARCHITECTURE.md` |
+| **2026-11-12** | Antigravity AI | Study Progress & Topic Completion Percentage Tracker, Differentiated Features for Research Papers vs. College Study Materials, and 7-Chapter Walkthrough Video Overhaul: Implemented `useProgressStore` with `localStorage` persistence, real-time completion percentage metrics in `TownNavBar.vue` and `LearningPathStepper.vue`, and a dedicated `StudyProgressModal.vue` with individual topic mastery toggles and quick-focus camera buttons. Added differentiated capabilities in `BuildingInfoCard.vue`: Research Mode features theoretical novelty ($O(1)$ operations), mathematical formulations ($\text{MultiHead}(Q,K,V)$), empirical ablation study benchmarks, and an active BibTeX citation generator with one-click clipboard copy; Study Mode features topic study tracking, intuitive analogies, C kernel system call snippets, and professor exam traps. Overhauled `DemoVideoModal.vue` into 7 chapters focusing centrally on how Regulus AI gives intelligent structured replies after ingestion with interactive Research vs. Study tab toggling and soothing female voice narration. Verified frontend builds and backend pytest test suite pass with 100% success. | `progress.ts`, `StudyProgressModal.vue`, `TownNavBar.vue`, `LearningPathStepper.vue`, `BuildingInfoCard.vue`, `TownExplorerView.vue`, `DemoVideoModal.vue`, `HomeView.vue`, `README.md`, `ARCHITECTURE.md` |
 
